@@ -1,2 +1,1 @@
 # TabbyGo
-IT CAPSTONE PROJECT
