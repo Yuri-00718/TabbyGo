@@ -1,0 +1,146 @@
+name: tabby
+description: "A new Flutter project."
+publish_to: 'none' # Remove this line if you wish to publish to pub.dev
+
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.4.3 <4.0.0'
+
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.6
+  google_fonts: ^6.2.1
+  intl: ^0.19.0 
+  sqflite: ^2.0.0+4
+  path: ^1.8.3
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+  flutter_svg: ^2.0.10+1
+
+flutter:
+  uses-material-design: true
+  assets:
+  - assets/images/menu.png
+  - assets/images/Happy_Cat.png
+  - assets/images/untitled_design_1.png
+  - assets/images/Winner.png
+  - assets/images/Arrow_Up.png
+  - assets/images/POLE.png
+  - assets/images/Back_Arrow.png
+  - assets/vectors/img_5_x2.svg
+  - assets/vectors/container_6_x2.svg
+  - assets/vectors/vector_8_x2.svg
+  - assets/vectors/vector_2_x2.svg
+  - assets/vectors/vector_16_x2.svg
+  - assets/vectors/oval_copy_56_x2.svg
+  - assets/vectors/group_61_x2.svg
+  - assets/vectors/oval_copy_4_x2.svg
+  - assets/vectors/vector_27_x2.svg
+  - assets/vectors/frame_2_x2.svg
+  - assets/vectors/vector_12_x2.svg
+  - assets/vectors/vector_6_x2.svg
+  - assets/vectors/group_66_x2.svg
+  - assets/vectors/oval_copy_2_x2.svg
+  - assets/vectors/vector_x2.svg
+  - assets/vectors/icon_6_x2.svg
+  - assets/vectors/vector_24_x2.svg
+  - assets/vectors/oval_copy_55_x2.svg
+  - assets/vectors/vector_19_x2.svg
+  - assets/vectors/frame_7_x2.svg
+  - assets/vectors/new_post_x2.svg
+  - assets/images/law_studies_with_contract_and_gavel.png
+  - assets/images/woman_participates_in_an_online_conference_with_colleagues.png
+  - assets/images/time_management.png
+  - assets/images/business_analytics_on_tablet_screen.png
+  - assets/vectors/frame_x2.svg
+  - assets/vectors/group_65_x2.svg
+  - assets/vectors/group_7_x2.svg
+  - assets/vectors/mask_group_2_x2.svg
+  - assets/vectors/vector_22_x2.svg
+  - assets/vectors/frame_3_x2.svg
+  - assets/vectors/vector_13_x2.svg
+  - assets/vectors/container_7_x2.svg
+  - assets/vectors/img_2_x2.svg
+  - assets/vectors/group_62_x2.svg
+  - assets/vectors/vector_10_x2.svg
+  - assets/vectors/oval_copy_1_x2.svg
+  - assets/vectors/oval_copy_52_x2.svg
+  - assets/images/untitled_design_1.png
+  - assets/vectors/vector_4_x2.svg
+  - assets/vectors/oval_copy_5_x2.svg
+  - assets/vectors/frame_8_x2.svg
+  - assets/vectors/vector_30_x2.svg
+  - assets/vectors/img_x2.svg
+  - assets/vectors/container_4_x2.svg
+  - assets/vectors/group_63_x2.svg
+  - assets/vectors/oval_copy_6_x2.svg
+  - assets/vectors/vector_11_x2.svg
+  - assets/vectors/vector_3_x2.svg
+  - assets/vectors/vector_20_x2.svg
+  - assets/vectors/img_4_x2.svg
+  - assets/vectors/oval_copy_51_x2.svg
+  - assets/vectors/frame_6_x2.svg
+  - assets/vectors/oval_copy_5_x2.svg
+  - assets/vectors/vector_9_x2.svg
+  - assets/vectors/container_x2.svg
+  - assets/vectors/vector_5_x2.svg
+  - assets/vectors/group_6_x2.svg
+  - assets/vectors/vector_1_x2.svg
+  - assets/vectors/oval_copy_53_x2.svg
+  - assets/vectors/group_67_x2.svg
+  - assets/vectors/oval_copy_x2.svg
+  - assets/vectors/frame_10_x2.svg
+  - assets/vectors/img_3_x2.svg
+  - assets/vectors/avatar_6_x2.svg
+  - assets/vectors/avatar_x2.svg
+  - assets/vectors/ihope_your_day_4_x2.svg
+  - assets/vectors/avatar_5_x2.svg
+  - assets/vectors/rectangle_942_x2.svg
+  - assets/vectors/avatar_3_x2.svg
+  - assets/vectors/mask_group_6_x2.svg
+  - assets/vectors/container_5_x2.svg
+  - assets/vectors/rectangle_94_x2.svg
+  - assets/vectors/medal_x2.svg
+  - assets/vectors/base_x2.svg
+  - assets/vectors/avatar_8_x2.svg
+  - assets/vectors/icon_1_x2.svg
+  - assets/vectors/avatar_4_x2.svg
+  - assets/vectors/avatar_1_x2.svg
+  - assets/vectors/frame_5_x2.svg
+  - assets/vectors/rectangle_941_x2.svg
+  - assets/vectors/avatar_2_x2.svg
+  - assets/vectors/avatar_7_x2.svg
+  - assets/vectors/icon_5_x2.svg
+  - assets/vectors/contents_6_x2.svg
+  - assets/vectors/vector_7_x2.svg
+  - assets/vectors/container_8_x2.svg
+  - assets/vectors/mask_group_7_x2.svg
+  - assets/vectors/frame_1_x2.svg
+  - assets/vectors/mask_group_3_x2.svg
+  - assets/vectors/mask_group_x2.svg
+  - assets/vectors/mask_group_5_x2.svg
+  - assets/vectors/mask_group_1_x2.svg
+  - assets/vectors/mask_group_8_x2.svg
+  - assets/vectors/icon_7_x2.svg
+  - assets/vectors/container_1_x2.svg
+  - assets/vectors/frame_9_x2.svg
+  - assets/vectors/icon_3_x2.svg
+  - assets/vectors/mask_group_4_x2.svg
+  - assets/vectors/oval_copy_54_x2.svg
+  - assets/vectors/vector_21_x2.svg
+  - assets/vectors/oval_copy_3_x2.svg
+  - assets/vectors/frame_4_x2.svg
+  - assets/vectors/img_1_x2.svg
+  - assets/vectors/vector_18_x2.svg
+  - assets/vectors/group_64_x2.svg
+  - assets/vectors/container_3_x2.svg
+  - assets/vectors/vector_14_x2.svg
+  - assets/vectors/vector_1_x2.svg
+  - assets/vectors/frame_x2.svg
+  - assets/vectors/icon_x2.svg
