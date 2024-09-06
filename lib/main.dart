@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:tabby/pages/dash_board.dart';
+import 'package:tabby/pages/user_management.dart';
 import 'package:tabby/pages/result.dart';
 import 'package:tabby/pages/result_and_reports_active_events.dart';
 import 'package:tabby/pages/template_creation.dart';
@@ -22,6 +23,7 @@ class MyApp extends StatelessWidget {
             const ResultAndReportsActiveEvents(),
         '/templateCreation': (context) => const TemplateCreation(),
         '/templateMenus': (context) => const TemplateMenus(),
+        '/JudgeManagement': (context) => const UserManagement(),
       },
     );
   }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 // ignore: depend_on_referenced_packages
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:tabby/pages/user_management.dart';
 import 'package:tabby/pages/result_and_reports_active_events.dart';
 import 'package:tabby/pages/template_menus.dart';
 
@@ -11,19 +12,24 @@ class DashBoard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: SingleChildScrollView(
-        child: Container(
-          decoration: const BoxDecoration(
-            color: Color(0xFF6A5AE0),
-          ),
-          child: Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(24, 60, 24, 111),
+      body: Container(
+        color: const Color(0xFF6A5AE0), // Background color
+        child: Column(
+          children: [
+            // Fixed Greeting Section
+            Container(
+              height: 200,
+              color: const Color(0xFF6A5AE0), // Same color for consistency
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(24, 80, 24, 30),
+                child: _buildGreeting(),
+              ),
+            ),
+            // Scrollable Content
+            Expanded(
+              child: SingleChildScrollView(
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    _buildGreeting(),
                     Container(
                       margin: const EdgeInsets.fromLTRB(6, 0, 6, 29),
                       child: Align(
@@ -46,7 +52,8 @@ class DashBoard extends StatelessWidget {
                                 ),
                               ),
                               SizedBox(
-                                width: 291,
+                                width: 350,
+                                height: 100,
                                 child: Container(
                                   padding:
                                       const EdgeInsets.fromLTRB(0, 10, 0, 20),
@@ -65,7 +72,7 @@ class DashBoard extends StatelessWidget {
                                             style: GoogleFonts.getFont(
                                               'Rubik',
                                               fontWeight: FontWeight.w500,
-                                              fontSize: 14,
+                                              fontSize: 16,
                                               height: 1.4,
                                               letterSpacing: 1.1,
                                               color: const Color(0xFF660012),
@@ -77,9 +84,9 @@ class DashBoard extends StatelessWidget {
                                         'Military Parade 2024',
                                         textAlign: TextAlign.center,
                                         style: GoogleFonts.getFont(
-                                          'Rubik',
+                                          'Poppins',
                                           fontWeight: FontWeight.w500,
-                                          fontSize: 20,
+                                          fontSize: 26,
                                           height: 1.4,
                                           color: const Color(0xFF660012),
                                         ),
@@ -121,9 +128,15 @@ class DashBoard extends StatelessWidget {
                     ),
                     _buildActionContainer(
                       context,
-                      'Participants \n Management',
+                      'User Account \n Management',
                       'assets/images/woman_participates_in_an_online_conference_with_colleagues.png',
-                      () {},
+                      () {
+                        Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const UserManagement(),
+                            ));
+                      },
                     ),
                     _buildActionContainer(
                       context,
@@ -134,62 +147,59 @@ class DashBoard extends StatelessWidget {
                   ],
                 ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
   }
 
   Widget _buildGreeting() {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 31.4),
-      child: Align(
-        alignment: Alignment.topLeft,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              margin: const EdgeInsets.only(bottom: 3.8),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    margin: const EdgeInsets.only(right: 8),
-                    child: SizedBox(
-                      width: 20,
-                      height: 19.8,
-                      child: SvgPicture.asset(
-                        'assets/vectors/frame_x2.svg',
-                      ),
+    return Align(
+      alignment: Alignment.topLeft,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            margin: const EdgeInsets.only(bottom: 3.8),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  margin: const EdgeInsets.only(right: 8),
+                  child: SizedBox(
+                    width: 40,
+                    height: 40,
+                    child: SvgPicture.asset(
+                      'assets/vectors/frame_x2.svg',
                     ),
                   ),
-                  Text(
-                    'GOOD MORNING ',
-                    style: GoogleFonts.getFont(
-                      'Rubik',
-                      fontWeight: FontWeight.w500,
-                      fontSize: 12,
-                      height: 1.5,
-                      letterSpacing: 0.5,
-                      color: const Color(0xFFFFD6DD),
-                    ),
+                ),
+                Text(
+                  'GOOD MORNING ',
+                  style: GoogleFonts.getFont(
+                    'Rubik',
+                    fontWeight: FontWeight.w500,
+                    fontSize: 24,
+                    height: 1.8,
+                    letterSpacing: 0.5,
+                    color: const Color(0xFFFFD6DD),
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
-            Text(
-              'Administrator',
-              style: GoogleFonts.getFont(
-                'Rubik',
-                fontWeight: FontWeight.w500,
-                fontSize: 24,
-                height: 1.5,
-                color: const Color(0xFFFFFFFF),
-              ),
+          ),
+          Text(
+            'Administrator',
+            style: GoogleFonts.getFont(
+              'Poppins',
+              fontWeight: FontWeight.w500,
+              fontSize: 24,
+              height: 1.5,
+              color: const Color(0xFFFFFFFF),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -210,8 +220,8 @@ class DashBoard extends StatelessWidget {
         ],
       ),
       child: SizedBox(
-        width: 264,
-        height: 100, // Adjusted height to prevent overflow
+        width: 364,
+        height: 150, // Adjusted height to accommodate larger images
         child: InkWell(
           onTap: onTap,
           child: Row(
@@ -226,8 +236,8 @@ class DashBoard extends StatelessWidget {
                     ),
                   ),
                   child: const SizedBox(
-                    width: 89,
-                    height: 74,
+                    width: 130, // Increased width
+                    height: 250, // Increased height
                   ),
                 ),
               ),
@@ -238,7 +248,7 @@ class DashBoard extends StatelessWidget {
                   style: GoogleFonts.getFont(
                     'Poppins',
                     fontWeight: FontWeight.w500,
-                    fontSize: 15,
+                    fontSize: 18,
                     color: const Color(0xFFFFFFFF),
                   ),
                 ),

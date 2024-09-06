@@ -1,8 +1,11 @@
+// ignore_for_file: depend_on_referenced_packages
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:tabby/pages/result.dart';
-// ignore: depend_on_referenced_packages
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:tabby/pages/data_base_helper.dart';
 
 class ResultAndReportsActiveEvents extends StatefulWidget {
   const ResultAndReportsActiveEvents({super.key});
@@ -16,6 +19,36 @@ class ResultAndReportsActiveEvents extends StatefulWidget {
 class _ResultAndReportsActiveEventsState
     extends State<ResultAndReportsActiveEvents> {
   bool _isActiveEventSelected = true;
+  List<Map<String, dynamic>> events = [];
+  List<Map<String, dynamic>> activeEvents = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadEventData();
+  }
+
+  Future<void> _loadEventData() async {
+    try {
+      // Fetch all templates (events) from the database
+      final allEvents = await DatabaseHelper.instance.getTemplates();
+
+      // Filter active events based on the template code
+      activeEvents = allEvents.where((event) {
+        // Replace 'templateCodeField' with the actual field name used to determine if an event is active
+        return event['templateCodeField'] != null &&
+            event['templateCodeField'] != '';
+      }).toList();
+
+      setState(() {
+        events = allEvents;
+      });
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error loading event data: $e');
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -51,7 +84,6 @@ class _ResultAndReportsActiveEventsState
         children: [
           Row(
             children: [
-              // Added SVG Container
               Container(
                 margin: const EdgeInsets.only(right: 8),
                 child: SizedBox(
@@ -196,91 +228,88 @@ class _ResultAndReportsActiveEventsState
   Widget _buildEventContainer(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
     final screenHeight = MediaQuery.of(context).size.height;
-
-    // Adjust padding based on screen height to ensure the container doesn't go off-screen
-    final bottomPadding = screenHeight * 0.5; // Adjust percentage as needed
+    final bottomPadding = screenHeight * 0.5;
 
     return Padding(
-      padding: EdgeInsets.only(
-          top: 16, bottom: bottomPadding), // Adjust top and bottom padding
-      child: GestureDetector(
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => Result()),
-          );
-        },
-        child: SizedBox(
-          width: screenWidth * 0.9,
-          height: 50, // Adjusted height for better visibility
-          child: Container(
-            decoration: BoxDecoration(
-              color: const Color(0xFF7D8EEA),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Center(
-              child: Text(
-                'Military Parade 2024',
-                style: GoogleFonts.rubik(
-                  fontWeight: FontWeight.w500,
-                  fontSize: 20, // Adjusted font size
-                  color: const Color(0xFFFFFFFF),
-                ),
-                textAlign: TextAlign.center,
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildAllEventGrid() {
-    final events = [
-      'BSP Parade 2024',
-      'Org Booth 2024',
-    ];
-
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        childAspectRatio: 1.0,
-        crossAxisSpacing: 16,
-        mainAxisSpacing: 16,
-      ),
-      itemCount: events.length,
-      itemBuilder: (context, index) {
-        return GestureDetector(
-          onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => Result()),
-            );
-          },
-          child: Container(
-            decoration: BoxDecoration(
-              color: const Color(0xFF7D8EEA),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Center(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                child: Text(
-                  events[index],
-                  textAlign: TextAlign.center,
-                  style: GoogleFonts.rubik(
-                    fontWeight: FontWeight.w500,
-                    fontSize: 18,
-                    color: const Color(0xFFFFFFFF),
+      padding: EdgeInsets.only(top: 16, bottom: bottomPadding),
+      child: activeEvents.isEmpty
+          ? const Center(child: CircularProgressIndicator())
+          : GestureDetector(
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => Result()),
+                );
+              },
+              child: SizedBox(
+                width: screenWidth * 0.9,
+                height: 50,
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF7D8EEA),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Center(
+                    child: Text(
+                      activeEvents.first['eventName'] ?? 'Unnamed Event',
+                      style: GoogleFonts.rubik(
+                        fontWeight: FontWeight.w500,
+                        fontSize: 20,
+                        color: const Color(0xFFFFFFFF),
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
                   ),
                 ),
               ),
             ),
-          ),
-        );
-      },
     );
+  }
+
+  Widget _buildAllEventGrid() {
+    return events.isEmpty
+        ? const Center(child: CircularProgressIndicator())
+        : GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              childAspectRatio: 1.0,
+              crossAxisSpacing: 16,
+              mainAxisSpacing: 16,
+            ),
+            itemCount: events.length,
+            itemBuilder: (context, index) {
+              final event = events[index];
+              return GestureDetector(
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => Result()),
+                  );
+                },
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF7D8EEA),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Center(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      child: Text(
+                        event['eventName'] ?? 'Unnamed Event',
+                        textAlign: TextAlign.center,
+                        style: GoogleFonts.rubik(
+                          fontWeight: FontWeight.w500,
+                          fontSize: 18,
+                          color: const Color(0xFFFFFFFF),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              );
+            },
+          );
   }
 }

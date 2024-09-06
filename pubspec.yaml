@@ -16,7 +16,9 @@ dependencies:
   intl: ^0.19.0 
   sqflite: ^2.0.0+4
   path: ^1.8.3
-
+  flutter_riverpod: ^2.0.0
+  image_picker: ^0.8.7+4 
+  path_provider: ^2.0.9
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -26,11 +28,15 @@ dev_dependencies:
 flutter:
   uses-material-design: true
   assets:
+  - assets/images/
+  - assets/vectors/
   - assets/images/menu.png
   - assets/images/Happy_Cat.png
   - assets/images/untitled_design_1.png
   - assets/images/Winner.png
   - assets/images/Arrow_Up.png
+  - assets/images/Back_Arrow.png
+
   - assets/images/POLE.png
   - assets/images/Back_Arrow.png
   - assets/vectors/img_5_x2.svg

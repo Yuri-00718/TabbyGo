@@ -30,15 +30,18 @@ class _TemplateMenusState extends State<TemplateMenus> {
       if (kDebugMode) {
         print('Loaded templates: $templates');
       }
+
+      // Perform asynchronous operations before calling setState
+      List<Widget> loadedContentEvents = await Future.wait(
+        templates.map((template) => _buildContentEvents(template)).toList(),
+      );
+
+      // Update the state with the loaded results
       setState(() {
-        contentEvents = templates.map((template) {
-          return _buildContentEvents(template);
-        }).toList();
+        contentEvents = loadedContentEvents;
       });
     } catch (e) {
-      if (kDebugMode) {
-        print('Error loading templates: $e');
-      }
+      _handleError('Error loading templates', e);
     }
   }
 
@@ -46,27 +49,56 @@ class _TemplateMenusState extends State<TemplateMenus> {
     await Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => TemplateCreation(
-          template: template, // Pass the template data here
-        ),
+        builder: (context) => TemplateCreation(template: template),
       ),
     );
-
-    // Reload templates after returning from the template creation screen
-    _loadTemplates();
+    _loadTemplates(); // Reload templates after returning from the template creation screen
   }
 
-  void _editTemplate(Map<String, dynamic> template) async {
+  Future<void> _editTemplate(Map<String, dynamic> template) async {
     _navigateToTemplateCreation(template: template);
   }
 
-  void _deleteTemplate(int id) async {
-    bool? confirm = await showDialog(
+  Future<void> _deleteTemplate(int id) async {
+    bool? confirm = await _showConfirmationDialog(
+      title: 'Confirm Delete',
+      content: 'Are you sure you want to delete this template?',
+    );
+
+    if (confirm == true) {
+      try {
+        await DatabaseHelper.instance.deleteTemplate(id);
+        _loadTemplates(); // Reload templates after deletion
+      } catch (e) {
+        _handleError('Error deleting template', e);
+      }
+    }
+  }
+
+  Future<void> _resetDatabaseSchema() async {
+    bool? confirm = await _showConfirmationDialog(
+      title: 'Confirm Reset',
+      content: 'Are you sure you want to reset the database schema?',
+    );
+
+    if (confirm == true) {
+      try {
+        await DatabaseHelper.instance.resetDatabase(); // Reset the schema
+        _loadTemplates(); // Optionally reload templates or handle UI updates
+      } catch (e) {
+        _handleError('Error resetting database schema', e);
+      }
+    }
+  }
+
+  Future<bool?> _showConfirmationDialog(
+      {required String title, required String content}) {
+    return showDialog<bool>(
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: const Text('Confirm Delete'),
-          content: const Text('Are you sure you want to delete this template?'),
+          title: Text(title),
+          content: Text(content),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(true),
@@ -80,17 +112,15 @@ class _TemplateMenusState extends State<TemplateMenus> {
         );
       },
     );
+  }
 
-    if (confirm == true) {
-      try {
-        await DatabaseHelper.instance.deleteTemplate(id);
-        _loadTemplates(); // Reload templates after deletion
-      } catch (e) {
-        if (kDebugMode) {
-          print('Error deleting template: $e');
-        }
-      }
+  void _handleError(String message, Object error) {
+    if (kDebugMode) {
+      print('$message: $error');
     }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('$message. Please try again.')),
+    );
   }
 
   @override
@@ -120,6 +150,13 @@ class _TemplateMenusState extends State<TemplateMenus> {
         ),
       ),
       floatingActionButton: _buildAddButton(),
+      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
+      persistentFooterButtons: [
+        ElevatedButton(
+          onPressed: _resetDatabaseSchema,
+          child: const Text('Delete All Templates'),
+        ),
+      ],
     );
   }
 
@@ -194,10 +231,7 @@ class _TemplateMenusState extends State<TemplateMenus> {
     );
   }
 
-  Widget _buildContentEvents(Map<String, dynamic> template) {
-    if (kDebugMode) {
-      print('Building content for template: $template');
-    }
+  Future<Widget> _buildContentEvents(Map<String, dynamic> template) async {
     return Container(
       margin: const EdgeInsets.fromLTRB(0, 25, 0, 16),
       decoration: BoxDecoration(
@@ -207,13 +241,15 @@ class _TemplateMenusState extends State<TemplateMenus> {
       ),
       padding: const EdgeInsets.fromLTRB(20, 13, 25, 13),
       child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Container(
-                  margin: const EdgeInsets.fromLTRB(0, 0, 0, 6),
+                  margin: const EdgeInsets.only(bottom: 10),
                   child: Text(
                     template['eventName'] ?? 'No Title',
                     style: GoogleFonts.poppins(
@@ -243,27 +279,29 @@ class _TemplateMenusState extends State<TemplateMenus> {
               child: Image.asset(
                 'assets/images/menu.png',
                 color: const Color(0xFF6A5AE0),
-                fit: BoxFit.contain,
               ),
             ),
-            onSelected: (String value) {
-              if (value == 'edit') {
-                _editTemplate(template);
-              } else if (value == 'delete') {
-                _deleteTemplate(template['id']);
-              }
-            },
-            itemBuilder: (BuildContext context) {
+            itemBuilder: (context) {
               return [
                 const PopupMenuItem<String>(
-                  value: 'edit',
+                  value: 'Edit',
                   child: Text('Edit'),
                 ),
                 const PopupMenuItem<String>(
-                  value: 'delete',
+                  value: 'Delete',
                   child: Text('Delete'),
                 ),
               ];
+            },
+            onSelected: (value) {
+              switch (value) {
+                case 'Edit':
+                  _editTemplate(template);
+                  break;
+                case 'Delete':
+                  _deleteTemplate(template['id']);
+                  break;
+              }
             },
           ),
         ],
@@ -273,14 +311,9 @@ class _TemplateMenusState extends State<TemplateMenus> {
 
   Widget _buildAddButton() {
     return FloatingActionButton(
-      backgroundColor: Colors.white,
-      onPressed: () {
-        _navigateToTemplateCreation();
-      },
-      child: const Icon(
-        Icons.add,
-        color: Color(0xFF6A5AE0),
-      ),
+      backgroundColor: const Color.fromARGB(255, 255, 255, 255),
+      onPressed: () => _navigateToTemplateCreation(),
+      child: const Icon(Icons.add),
     );
   }
 }
