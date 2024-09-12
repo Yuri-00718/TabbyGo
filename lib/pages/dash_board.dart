@@ -1,28 +1,91 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 // ignore: depend_on_referenced_packages
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:tabby/pages/user_management.dart';
 import 'package:tabby/pages/result_and_reports_active_events.dart';
 import 'package:tabby/pages/template_menus.dart';
+// ignore: depend_on_referenced_packages
+import 'package:connectivity_plus/connectivity_plus.dart';
 
-class DashBoard extends StatelessWidget {
+class DashBoard extends StatefulWidget {
   const DashBoard({super.key});
+
+  @override
+  // ignore: library_private_types_in_public_api
+  _DashBoardState createState() => _DashBoardState();
+}
+
+class _DashBoardState extends State<DashBoard> {
+  bool _isOffline = false;
+  Timer? _bannerTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkConnectivity();
+  }
+
+  @override
+  void dispose() {
+    _bannerTimer?.cancel(); // Cancel timer when widget is disposed
+    super.dispose();
+  }
+
+  void _checkConnectivity() {
+    Connectivity().onConnectivityChanged.listen((ConnectivityResult result) {
+      if (mounted) {
+        setState(() {
+          _isOffline = result == ConnectivityResult.none;
+        });
+      }
+      if (!_isOffline) {
+        _bannerTimer?.cancel(); // Cancel any existing timer
+        _bannerTimer = Timer(const Duration(seconds: 10), () {
+          if (mounted) {
+            setState(() {
+              _isOffline = false; // Hide the banner after 10 seconds
+            });
+          }
+        });
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: Container(
-        color: const Color(0xFF6A5AE0), // Background color
+        color: const Color(0xFF6A5AE0),
         child: Column(
           children: [
+            // Banner for connectivity status
+            if (_isOffline || (_bannerTimer != null && _bannerTimer!.isActive))
+              Container(
+                width: double.infinity,
+                color: _isOffline ? Colors.redAccent : Colors.greenAccent,
+                padding: const EdgeInsets.all(8),
+                child: Text(
+                  _isOffline
+                      ? "Tabby is in Offline Mode"
+                      : "Connected to the Internet",
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.getFont(
+                    'Poppins',
+                    fontSize: 16,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
             // Fixed Greeting Section
             Container(
               height: 200,
-              color: const Color(0xFF6A5AE0), // Same color for consistency
+              color: const Color(0xFF6A5AE0),
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(24, 80, 24, 30),
-                child: _buildGreeting(),
+                padding: const EdgeInsets.fromLTRB(24, 80, 24, 20),
+                child: _buildGreeting(context),
               ),
             ),
             // Scrollable Content
@@ -30,76 +93,6 @@ class DashBoard extends StatelessWidget {
               child: SingleChildScrollView(
                 child: Column(
                   children: [
-                    Container(
-                      margin: const EdgeInsets.fromLTRB(6, 0, 6, 29),
-                      child: Align(
-                        alignment: Alignment.center,
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFFFCCD5),
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: Stack(
-                            children: [
-                              Positioned(
-                                top: 0,
-                                child: SizedBox(
-                                  width: 291,
-                                  height: 81,
-                                  child: SvgPicture.asset(
-                                    'assets/vectors/mask_group_2_x2.svg',
-                                  ),
-                                ),
-                              ),
-                              SizedBox(
-                                width: 350,
-                                height: 100,
-                                child: Container(
-                                  padding:
-                                      const EdgeInsets.fromLTRB(0, 10, 0, 20),
-                                  child: Column(
-                                    mainAxisAlignment: MainAxisAlignment.start,
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.center,
-                                    children: [
-                                      Container(
-                                        margin: const EdgeInsets.fromLTRB(
-                                            0, 0, 1.2, 2),
-                                        child: Opacity(
-                                          opacity: 0.5,
-                                          child: Text(
-                                            'Active Event',
-                                            style: GoogleFonts.getFont(
-                                              'Rubik',
-                                              fontWeight: FontWeight.w500,
-                                              fontSize: 16,
-                                              height: 1.4,
-                                              letterSpacing: 1.1,
-                                              color: const Color(0xFF660012),
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                      Text(
-                                        'Military Parade 2024',
-                                        textAlign: TextAlign.center,
-                                        style: GoogleFonts.getFont(
-                                          'Poppins',
-                                          fontWeight: FontWeight.w500,
-                                          fontSize: 26,
-                                          height: 1.4,
-                                          color: const Color(0xFF660012),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
                     _buildActionContainer(
                       context,
                       'Results and Reports',
@@ -154,15 +147,18 @@ class DashBoard extends StatelessWidget {
     );
   }
 
-  Widget _buildGreeting() {
-    return Align(
-      alignment: Alignment.topLeft,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            margin: const EdgeInsets.only(bottom: 3.8),
-            child: Row(
+  Widget _buildGreeting(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(
+          horizontal: 16.0), // Adjust padding as needed
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.2,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Container(
@@ -170,37 +166,78 @@ class DashBoard extends StatelessWidget {
                   child: SizedBox(
                     width: 40,
                     height: 40,
-                    child: SvgPicture.asset(
-                      'assets/vectors/frame_x2.svg',
-                    ),
+                    child: SvgPicture.asset('assets/vectors/frame_x2.svg'),
                   ),
                 ),
-                Text(
-                  'GOOD MORNING ',
-                  style: GoogleFonts.getFont(
-                    'Rubik',
-                    fontWeight: FontWeight.w500,
-                    fontSize: 24,
-                    height: 1.8,
-                    letterSpacing: 0.5,
-                    color: const Color(0xFFFFD6DD),
+                Expanded(
+                  child: Text(
+                    'GOOD MORNING',
+                    style: GoogleFonts.getFont(
+                      'Rubik',
+                      fontWeight: FontWeight.w500,
+                      fontSize: 24,
+                      height: 1.8,
+                      letterSpacing: 0.5,
+                      color: const Color(0xFFFFD6DD),
+                    ),
                   ),
                 ),
               ],
             ),
-          ),
-          Text(
-            'Administrator',
-            style: GoogleFonts.getFont(
-              'Poppins',
-              fontWeight: FontWeight.w500,
-              fontSize: 24,
-              height: 1.5,
-              color: const Color(0xFFFFFFFF),
+            const SizedBox(height: 8), // Adjust spacing between rows
+            Row(
+              children: [
+                Text(
+                  'Administrator',
+                  style: GoogleFonts.getFont(
+                    'Poppins',
+                    fontWeight: FontWeight.w500,
+                    fontSize: 24,
+                    height: 1.5,
+                    color: const Color(0xFFFFFFFF),
+                  ),
+                ),
+                const SizedBox(width: 8), // Space between text and icon
+                IconButton(
+                  icon: const Icon(
+                    Icons.logout,
+                    color: Colors.white,
+                    size: 20,
+                  ),
+                  onPressed: () => _showLogoutDialog(context),
+                ),
+              ],
             ),
-          ),
-        ],
+          ],
+        ),
       ),
+    );
+  }
+
+  void _showLogoutDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Logout'),
+          content: const Text('Are you sure you want to logout?'),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                Navigator.of(context).pushReplacementNamed('/role');
+              },
+              child: const Text('Logout'),
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -221,7 +258,7 @@ class DashBoard extends StatelessWidget {
       ),
       child: SizedBox(
         width: 364,
-        height: 150, // Adjusted height to accommodate larger images
+        height: 150,
         child: InkWell(
           onTap: onTap,
           child: Row(
@@ -236,8 +273,9 @@ class DashBoard extends StatelessWidget {
                     ),
                   ),
                   child: const SizedBox(
-                    width: 130, // Increased width
-                    height: 250, // Increased height
+                    width: 130,
+                    height:
+                        150, // Ensure this height matches the container's height
                   ),
                 ),
               ),

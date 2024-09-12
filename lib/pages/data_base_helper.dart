@@ -2,6 +2,8 @@ import 'dart:convert';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 import 'package:flutter/foundation.dart';
+// ignore: depend_on_referenced_packages
+import 'package:crypto/crypto.dart';
 
 class DatabaseHelper {
   static final DatabaseHelper instance = DatabaseHelper._privateConstructor();
@@ -38,7 +40,7 @@ class DatabaseHelper {
       templateCode TEXT,
       totalWeightage INTEGER
     )
-  ''');
+    ''');
 
     // Create the results table
     await db.execute('''
@@ -49,7 +51,7 @@ class DatabaseHelper {
       points INTEGER,
       rank INTEGER
     )
-  ''');
+    ''');
 
     // Create the additional_ranks table
     await db.execute('''
@@ -60,7 +62,7 @@ class DatabaseHelper {
       additional_points INTEGER,
       additional_rank INTEGER
     )
-  ''');
+    ''');
 
     // Create the judges table
     await db.execute('''
@@ -73,19 +75,20 @@ class DatabaseHelper {
       template TEXT,
       image TEXT
     )
-  ''');
+    ''');
 
-    // Create the admins table (extra comma removed)
+    // Create the admins table
     await db.execute('''
     CREATE TABLE admins(
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT,
       username TEXT UNIQUE,
       password TEXT,
+      raw_password TEXT,
       role TEXT,
       image TEXT
     )
-  ''');
+    ''');
 
     if (kDebugMode) {
       print('Database and tables created.');
@@ -100,12 +103,12 @@ class DatabaseHelper {
     if (oldVersion < 9) {
       // Upgrades related to the judges table
       await db.execute('''
-    ALTER TABLE judges ADD COLUMN template TEXT;
-  ''');
+      ALTER TABLE judges ADD COLUMN template TEXT;
+      ''');
 
       await db.execute('''
-    ALTER TABLE judges ADD COLUMN image TEXT;
-  ''');
+      ALTER TABLE judges ADD COLUMN image TEXT;
+      ''');
     }
 
     if (kDebugMode) {
@@ -122,7 +125,7 @@ class DatabaseHelper {
       await db.execute('DROP TABLE IF EXISTS results');
       await db.execute('DROP TABLE IF EXISTS additional_ranks');
       await db.execute('DROP TABLE IF EXISTS judges');
-      await db.execute('DROP TABLE IF EXISTS admins'); // Drop the admins table
+      await db.execute('DROP TABLE IF EXISTS admins');
 
       // Call _onCreate to recreate the tables
       await _onCreate(
@@ -135,7 +138,7 @@ class DatabaseHelper {
       if (kDebugMode) {
         print('Error resetting database: $e');
       }
-      rethrow; // Rethrow the exception to handle it higher up if needed
+      rethrow;
     }
   }
 
@@ -432,21 +435,25 @@ class DatabaseHelper {
     }
   }
 
-// Admin Methods
+//admin methods
+  //admin methods
   Future<int> insertAdmin(Map<String, dynamic> admin) async {
     final db = await database;
     try {
       final encodedAdmin = {
         'name': admin['name'] ?? '',
         'username': admin['username'] ?? '',
-        'password':
-            admin['password'] ?? '', // Ensure this is hashed before storage
+        'password': _hashPassword(admin['password'] ?? ''),
+        'raw_password': admin['password'] ?? '',
         'role': admin['role'] ?? '',
         'image': admin['image'] ?? '',
-        // Add other necessary fields here
       };
 
-      return await db.insert('admins', encodedAdmin);
+      return await db.insert(
+        'admins',
+        encodedAdmin,
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
     } catch (e) {
       if (kDebugMode) {
         print('Error inserting admin: $e');
@@ -465,10 +472,9 @@ class DatabaseHelper {
           'id': result['id'],
           'name': result['name'] ?? '',
           'username': result['username'] ?? '',
-          'password': result['password'] ?? '',
+          'password': result['raw_password'] ?? '',
           'role': result['role'] ?? '',
           'image': result['image'] ?? '',
-          // Add other necessary fields here
         };
       }).toList();
     } catch (e) {
@@ -479,7 +485,6 @@ class DatabaseHelper {
     }
   }
 
-// Method to get a specific admin by username
   Future<Map<String, dynamic>?> getAdminByUsername(String username) async {
     final db = await database;
     try {
@@ -495,7 +500,7 @@ class DatabaseHelper {
           'id': admin['id'],
           'name': admin['name'] ?? '',
           'username': admin['username'] ?? '',
-          'password': admin['password'] ?? '',
+          'password': admin['raw_password'] ?? '',
           'role': admin['role'] ?? '',
           'image': admin['image'] ?? '',
         };
@@ -513,7 +518,7 @@ class DatabaseHelper {
   Future<int> updateAdmin(int id, Map<String, dynamic> adminData) async {
     final db = await database;
 
-    // Check if the admin exists in the database
+    // Check if the admin exists
     final existingAdmins = await db.query(
       'admins',
       where: 'id = ?',
@@ -524,18 +529,20 @@ class DatabaseHelper {
       throw Exception('Admin with ID $id not found');
     }
 
-    // Prepare the updated admin data (merge with existing data if necessary)
+    // Prepare the updated admin data
     final existingAdmin = existingAdmins.first;
     final encodedAdmin = {
       'name': adminData['name'] ?? existingAdmin['name'],
       'username': adminData['username'] ?? existingAdmin['username'],
-      'password': adminData['password'] ??
-          existingAdmin['password'], // Ensure this is hashed before storage
+      'password': adminData['password'] != null
+          ? _hashPassword(adminData['password'])
+          : existingAdmin['password'],
+      'raw_password': adminData['password'] ?? existingAdmin['raw_password'],
       'role': adminData['role'] ?? existingAdmin['role'],
       'image': adminData['image'] ?? existingAdmin['image'],
     };
 
-    // Perform the update operation
+    // Perform the update
     return await db.update(
       'admins',
       encodedAdmin,
@@ -559,6 +566,41 @@ class DatabaseHelper {
       }
       rethrow;
     }
+  }
+
+  // Custom admin authentication methods for offline use
+
+  Future<void> registerAdmin(
+      String username, String password, String name, String role) async {
+    String hashedPassword = _hashPassword(password);
+    await _database!.insert(
+      'admins',
+      {
+        'username': username,
+        'password': hashedPassword,
+        'name': name,
+        'role': role,
+      },
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+  Future<bool> loginAdmin(String username, String password) async {
+    String hashedPassword = _hashPassword(password);
+    final db = await database;
+    List<Map<String, dynamic>> result = await db.query(
+      'admins',
+      where: 'username = ? AND password = ?',
+      whereArgs: [username, hashedPassword],
+    );
+    return result.isNotEmpty;
+  }
+
+  // Method to hash the password using SHA-256
+  String _hashPassword(String password) {
+    var bytes = utf8.encode(password); // Convert password to bytes
+    var digest = sha256.convert(bytes); // Hash the bytes
+    return digest.toString(); // Return the hashed password
   }
 
   //Results methods

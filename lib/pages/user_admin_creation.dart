@@ -1,3 +1,5 @@
+// ignore_for_file: use_build_context_synchronously
+
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -25,17 +27,20 @@ class _AdminCreationState extends State<AdminCreation> {
   final _confirmPasswordController = TextEditingController();
   XFile? _imageFile;
 
-  bool _passwordVisible = false;
-  bool _confirmPasswordVisible = false;
+  bool _passwordVisible = true;
+  bool _confirmPasswordVisible = true;
 
   @override
   void initState() {
     super.initState();
+
     if (widget.admin.isNotEmpty) {
       _nameController.text = widget.admin['name'] ?? '';
       _usernameController.text = widget.admin['username'] ?? '';
+      // Ensure raw password is correctly set
       _passwordController.text = widget.admin['password'] ?? '';
-      _confirmPasswordController.text = widget.admin['confirmPassword'] ?? '';
+      _confirmPasswordController.text = widget.admin['password'] ?? '';
+
       if (widget.admin['image'] != null) {
         _imageFile = XFile(widget.admin['image']);
       }
@@ -72,9 +77,10 @@ class _AdminCreationState extends State<AdminCreation> {
       final adminData = {
         'name': name,
         'username': username,
-        'password': password,
+        'password': password, // Store hashed password
         'role': widget.role,
         'image': imagePath,
+        'raw_password': password,
       };
 
       final dbHelper = DatabaseHelper.instance;
@@ -92,7 +98,6 @@ class _AdminCreationState extends State<AdminCreation> {
         _imageFile = null;
       });
 
-      // ignore: use_build_context_synchronously
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
@@ -100,7 +105,6 @@ class _AdminCreationState extends State<AdminCreation> {
         ),
       );
 
-      // ignore: use_build_context_synchronously
       Navigator.pop(context);
     }
   }
@@ -280,48 +284,40 @@ class _AdminCreationState extends State<AdminCreation> {
                   : null,
             ),
             const SizedBox(height: 16),
-            _buildTextFormField(
+            _buildPasswordField(
               controller: _passwordController,
               label: 'Password',
-              obscureText: !_passwordVisible,
-              validator: (value) => value == null || value.isEmpty
-                  ? 'Please enter password'
-                  : null,
-              toggleVisibility: () {
+              visibility: _passwordVisible,
+              onToggleVisibility: () {
                 setState(() {
                   _passwordVisible = !_passwordVisible;
                 });
               },
             ),
             const SizedBox(height: 16),
-            _buildTextFormField(
+            _buildPasswordField(
               controller: _confirmPasswordController,
               label: 'Confirm Password',
-              obscureText: !_confirmPasswordVisible,
-              validator: (value) => value != _passwordController.text
-                  ? 'Passwords do not match'
-                  : null,
-              toggleVisibility: () {
+              visibility: _confirmPasswordVisible,
+              onToggleVisibility: () {
                 setState(() {
                   _confirmPasswordVisible = !_confirmPasswordVisible;
                 });
               },
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 16),
             Center(
               child: ElevatedButton(
                 onPressed: _submitForm,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF6A5AE0),
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(8),
                   ),
                 ),
                 child: Text(
-                  widget.admin.isEmpty ? 'Create Admin' : 'Update Admin',
-                  style: GoogleFonts.poppins(
+                  widget.admin.isEmpty ? 'Create' : 'Update',
+                  style: GoogleFonts.rubik(
                     fontWeight: FontWeight.w500,
                     fontSize: 16,
                     color: Colors.white,
@@ -338,30 +334,43 @@ class _AdminCreationState extends State<AdminCreation> {
   Widget _buildTextFormField({
     required TextEditingController controller,
     required String label,
-    bool obscureText = false,
-    required FormFieldValidator<String> validator,
-    VoidCallback? toggleVisibility,
+    String? Function(String?)? validator,
   }) {
     return TextFormField(
       controller: controller,
-      obscureText: obscureText,
       decoration: InputDecoration(
         labelText: label,
-        labelStyle: GoogleFonts.poppins(color: Colors.black),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(8),
         ),
-        suffixIcon: toggleVisibility != null
-            ? IconButton(
-                icon: Icon(
-                  obscureText ? Icons.visibility : Icons.visibility_off,
-                ),
-                onPressed: toggleVisibility,
-              )
-            : null,
       ),
-      style: GoogleFonts.poppins(color: Colors.black),
       validator: validator,
+    );
+  }
+
+  Widget _buildPasswordField({
+    required TextEditingController controller,
+    required String label,
+    required bool visibility,
+    required VoidCallback onToggleVisibility,
+  }) {
+    return TextFormField(
+      controller: controller,
+      obscureText: visibility,
+      decoration: InputDecoration(
+        labelText: label,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+        ),
+        suffixIcon: IconButton(
+          icon: Icon(
+            visibility ? Icons.visibility : Icons.visibility_off,
+          ),
+          onPressed: onToggleVisibility,
+        ),
+      ),
+      validator: (value) =>
+          value == null || value.isEmpty ? 'Please enter a password' : null,
     );
   }
 }

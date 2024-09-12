@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "175547730349",
+    "project_id": "tabbyauth",
+    "storage_bucket": "tabbyauth.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:175547730349:android:3012f9f3861822aecb7924",
+        "android_client_info": {
+          "package_name": "com.example.tabby"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB1wtQF-LxWJd8fjRX7-d5lTurEDlX0TAU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
