@@ -4,10 +4,13 @@ import 'package:path/path.dart';
 import 'package:flutter/foundation.dart';
 // ignore: depend_on_referenced_packages
 import 'package:crypto/crypto.dart';
+// ignore: depend_on_referenced_packages
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class DatabaseHelper {
   static final DatabaseHelper instance = DatabaseHelper._privateConstructor();
   static Database? _database;
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   DatabaseHelper._privateConstructor();
 
@@ -20,14 +23,14 @@ class DatabaseHelper {
     String path = join(await getDatabasesPath(), 'templates.db');
     return await openDatabase(
       path,
-      version: 9, // Updated version number to apply changes
+      version: 9,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
   }
 
   Future<void> _onCreate(Database db, int version) async {
-    // Create the templates table
+    // Create tables
     await db.execute('''
     CREATE TABLE templates(
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -40,9 +43,8 @@ class DatabaseHelper {
       templateCode TEXT,
       totalWeightage INTEGER
     )
-    ''');
+  ''');
 
-    // Create the results table
     await db.execute('''
     CREATE TABLE results(
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -51,9 +53,8 @@ class DatabaseHelper {
       points INTEGER,
       rank INTEGER
     )
-    ''');
+  ''');
 
-    // Create the additional_ranks table
     await db.execute('''
     CREATE TABLE additional_ranks(
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -62,9 +63,8 @@ class DatabaseHelper {
       additional_points INTEGER,
       additional_rank INTEGER
     )
-    ''');
+  ''');
 
-    // Create the judges table
     await db.execute('''
     CREATE TABLE judges(
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -75,9 +75,8 @@ class DatabaseHelper {
       template TEXT,
       image TEXT
     )
-    ''');
+  ''');
 
-    // Create the admins table
     await db.execute('''
     CREATE TABLE admins(
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -88,7 +87,13 @@ class DatabaseHelper {
       role TEXT,
       image TEXT
     )
-    ''');
+  ''');
+
+    await db.execute('''
+    CREATE TABLE synchronized_templates (
+      id TEXT PRIMARY KEY
+    )
+  ''');
 
     if (kDebugMode) {
       print('Database and tables created.');
@@ -103,12 +108,19 @@ class DatabaseHelper {
     if (oldVersion < 9) {
       // Upgrades related to the judges table
       await db.execute('''
-      ALTER TABLE judges ADD COLUMN template TEXT;
-      ''');
+      CREATE TABLE IF NOT EXISTS judges(
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT,
+        username TEXT UNIQUE,
+        password TEXT,
+        role TEXT,
+        template TEXT,
+        image TEXT
+      )
+    ''');
 
-      await db.execute('''
-      ALTER TABLE judges ADD COLUMN image TEXT;
-      ''');
+      // Additional upgrades if necessary
+      // Example: Handle other schema changes based on version
     }
 
     if (kDebugMode) {
@@ -117,17 +129,17 @@ class DatabaseHelper {
   }
 
   Future<void> resetDatabase() async {
-    final db = await database; // Ensure the database is properly initialized
+    final db = await _initDatabase();
 
     try {
       // Drop all necessary tables before resetting, including the 'admins' table
+      await db.execute('DROP TABLE IF EXISTS synchronized_templates');
       await db.execute('DROP TABLE IF EXISTS templates');
       await db.execute('DROP TABLE IF EXISTS results');
       await db.execute('DROP TABLE IF EXISTS additional_ranks');
       await db.execute('DROP TABLE IF EXISTS judges');
       await db.execute('DROP TABLE IF EXISTS admins');
 
-      // Call _onCreate to recreate the tables
       await _onCreate(
           db, 9); // Ensure version matches the current schema version
 
@@ -292,7 +304,21 @@ class DatabaseHelper {
     }
   }
 
-//judge method CRUD
+  Future<void> insertOrUpdateTemplate(Map<String, dynamic> template) async {
+    // Check if the template already exists in the database by ID
+    final existingTemplate = await getTemplateByCode(template['id']);
+
+    if (existingTemplate == null) {
+      // Insert new template if it doesn't exist
+      await insertTemplate(template);
+    } else {
+      // Update the existing template if it exists
+      await updateTemplate(template);
+    }
+  }
+
+// Judge CRUD methods
+
   Future<int> insertJudge(Map<String, dynamic> judge) async {
     final db = await database;
     try {
@@ -304,7 +330,6 @@ class DatabaseHelper {
         'role': judge['role'] ?? '',
         'image': judge['image'] ?? '',
       };
-
       return await db.insert('judges', encodedJudge);
     } catch (e) {
       if (kDebugMode) {
@@ -345,7 +370,6 @@ class DatabaseHelper {
         where: 'username = ?',
         whereArgs: [username],
       );
-
       if (results.isNotEmpty) {
         final judge = results.first;
         return {
@@ -369,29 +393,23 @@ class DatabaseHelper {
 
   Future<int> updateJudge(int id, Map<String, dynamic> judgeData) async {
     final db = await database;
-
-    // Check if the judge exists in the database
     final existingJudges = await db.query(
       'judges',
       where: 'id = ?',
       whereArgs: [id],
     );
-
     if (existingJudges.isEmpty) {
       throw Exception('Judge with ID $id not found');
     }
-
-    // Prepare the updated judge data (merge with existing data if necessary)
+    final existingJudge = existingJudges.first;
     final encodedJudge = {
-      'name': judgeData['name'] ?? existingJudges.first['name'],
-      'username': judgeData['username'] ?? existingJudges.first['username'],
-      'password': judgeData['password'] ?? existingJudges.first['password'],
-      'role': judgeData['role'] ?? existingJudges.first['role'],
-      'template': judgeData['template'] ?? existingJudges.first['template'],
-      'image': judgeData['image'] ?? existingJudges.first['image'],
+      'name': judgeData['name'] ?? existingJudge['name'],
+      'username': judgeData['username'] ?? existingJudge['username'],
+      'password': judgeData['password'] ?? existingJudge['password'],
+      'template': judgeData['template'] ?? existingJudge['template'],
+      'role': judgeData['role'] ?? existingJudge['role'],
+      'image': judgeData['image'] ?? existingJudge['image'],
     };
-
-    // Perform the update operation
     return await db.update(
       'judges',
       encodedJudge,
@@ -416,26 +434,6 @@ class DatabaseHelper {
     }
   }
 
-  Future<int> insertResult(Map<String, dynamic> result) async {
-    final db = await database;
-    try {
-      final encodedResult = {
-        'event_code': result['event_code'] ?? '',
-        'participant_name': result['participant_name'] ?? '',
-        'points': result['points'] ?? 0,
-        'rank': result['rank'] ?? 0,
-      };
-
-      return await db.insert('results', encodedResult);
-    } catch (e) {
-      if (kDebugMode) {
-        print('Error inserting result: $e');
-      }
-      rethrow;
-    }
-  }
-
-//admin methods
   //admin methods
   Future<int> insertAdmin(Map<String, dynamic> admin) async {
     final db = await database;
@@ -448,7 +446,6 @@ class DatabaseHelper {
         'role': admin['role'] ?? '',
         'image': admin['image'] ?? '',
       };
-
       return await db.insert(
         'admins',
         encodedAdmin,
@@ -462,7 +459,6 @@ class DatabaseHelper {
     }
   }
 
-// Method to retrieve all admins
   Future<List<Map<String, dynamic>>> getAdmins() async {
     final db = await database;
     try {
@@ -493,7 +489,6 @@ class DatabaseHelper {
         where: 'username = ?',
         whereArgs: [username],
       );
-
       if (results.isNotEmpty) {
         final admin = results.first;
         return {
@@ -514,22 +509,16 @@ class DatabaseHelper {
     }
   }
 
-// Method to update an admin record
   Future<int> updateAdmin(int id, Map<String, dynamic> adminData) async {
     final db = await database;
-
-    // Check if the admin exists
     final existingAdmins = await db.query(
       'admins',
       where: 'id = ?',
       whereArgs: [id],
     );
-
     if (existingAdmins.isEmpty) {
       throw Exception('Admin with ID $id not found');
     }
-
-    // Prepare the updated admin data
     final existingAdmin = existingAdmins.first;
     final encodedAdmin = {
       'name': adminData['name'] ?? existingAdmin['name'],
@@ -541,8 +530,6 @@ class DatabaseHelper {
       'role': adminData['role'] ?? existingAdmin['role'],
       'image': adminData['image'] ?? existingAdmin['image'],
     };
-
-    // Perform the update
     return await db.update(
       'admins',
       encodedAdmin,
@@ -551,7 +538,6 @@ class DatabaseHelper {
     );
   }
 
-// Method to delete an admin record
   Future<int> deleteAdmin(int id) async {
     final db = await database;
     try {
@@ -660,6 +646,256 @@ class DatabaseHelper {
     } catch (e) {
       if (kDebugMode) {
         print('Error retrieving additional ranks: $e');
+      }
+      rethrow;
+    }
+  }
+
+  Future<int> insertResult(Map<String, dynamic> result) async {
+    final db = await database;
+    try {
+      final encodedResult = {
+        'event_code': result['event_code'] ?? '',
+        'participant_name': result['participant_name'] ?? '',
+        'points': result['points'] ?? 0,
+        'rank': result['rank'] ?? 0,
+      };
+
+      return await db.insert('results', encodedResult);
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error inserting result: $e');
+      }
+      rethrow;
+    }
+  }
+
+  // Firestore CRUD operations for templates
+  Future<void> insertTemplateFirestore(
+      String id, Map<String, dynamic> template) async {
+    try {
+      await _firestore.collection('templates').doc(id).set(template);
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error inserting template in Firestore: $e');
+      }
+      rethrow;
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> getTemplatesFirestore() async {
+    try {
+      final snapshot = await _firestore.collection('templates').get();
+      return snapshot.docs.map((doc) => doc.data()).toList();
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error retrieving templates from Firestore: $e');
+      }
+      rethrow;
+    }
+  }
+
+  Future<void> updateTemplateFirestore(
+      String id, Map<String, dynamic> template) async {
+    try {
+      await _firestore.collection('templates').doc(id).update(template);
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error updating template in Firestore: $e');
+      }
+      rethrow;
+    }
+  }
+
+  Future<void> deleteTemplateFirestore(String id) async {
+    try {
+      await _firestore.collection('templates').doc(id).delete();
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error deleting template in Firestore: $e');
+      }
+      rethrow;
+    }
+  }
+
+  Future<void> insertOrUpdateTemplateFirestore(
+      String id, Map<String, dynamic> template) async {
+    try {
+      await _firestore
+          .collection('templates')
+          .doc(id)
+          .set(template, SetOptions(merge: true));
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error inserting or updating template in Firestore: $e');
+      }
+      rethrow;
+    }
+  }
+
+//this method to track and manage templates also to avoid duplication of templates :)
+  Future<Set<String>> getSynchronizedTemplateIds() async {
+    final db = await instance.database;
+    final result = await db.query('synchronized_templates');
+    return result.map((row) => row['id'].toString()).toSet();
+  }
+
+  Future<void> markTemplateAsSynchronized(String id) async {
+    final db = await instance.database;
+    await db.insert(
+      'synchronized_templates',
+      {'id': id},
+      conflictAlgorithm: ConflictAlgorithm.ignore,
+    );
+  }
+
+// Firestore CRUD operations for judges
+  Future<void> insertJudgeFirestore(Map<String, dynamic> judge) async {
+    try {
+      await _firestore.collection('judges').add(judge);
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error inserting judge in Firestore: $e');
+      }
+      rethrow;
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> getJudgesFirestore() async {
+    try {
+      final snapshot = await _firestore.collection('judges').get();
+      return snapshot.docs.map((doc) => doc.data()).toList();
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error retrieving judges from Firestore: $e');
+      }
+      rethrow;
+    }
+  }
+
+  Future<Map<String, dynamic>?> getJudgeByUsernameFirestore(
+      String username) async {
+    try {
+      final snapshot = await _firestore
+          .collection('judges')
+          .where('username', isEqualTo: username)
+          .get();
+      if (snapshot.docs.isNotEmpty) {
+        return snapshot.docs.first.data();
+      }
+      return null;
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error retrieving judge by username from Firestore: $e');
+      }
+      rethrow;
+    }
+  }
+
+  Future<void> updateJudgeFirestore(
+      String id, Map<String, dynamic> judge) async {
+    try {
+      await _firestore.collection('judges').doc(id).update(judge);
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error updating judge in Firestore: $e');
+      }
+      rethrow;
+    }
+  }
+
+  Future<void> deleteJudgeFirestore(String id) async {
+    try {
+      await _firestore.collection('judges').doc(id).delete();
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error deleting judge in Firestore: $e');
+      }
+      rethrow;
+    }
+  }
+
+  // Add a new admin to Firestore
+  Future<void> insertAdminFirestore(Map<String, dynamic> admin) async {
+    try {
+      await _firestore.collection('admins').add(admin);
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error inserting admin in Firestore: $e');
+      }
+      rethrow;
+    }
+  }
+
+  // Retrieve all admins from Firestore
+  Future<List<Map<String, dynamic>>> getAdminsFirestore() async {
+    try {
+      final snapshot = await _firestore.collection('admins').get();
+      return snapshot.docs.map((doc) => doc.data()).toList();
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error retrieving admins from Firestore: $e');
+      }
+      rethrow;
+    }
+  }
+
+  // Retrieve a specific admin by username
+  Future<Map<String, dynamic>?> getAdminByUsernameFirestore(
+      String username) async {
+    try {
+      final snapshot = await _firestore
+          .collection('admins')
+          .where('username', isEqualTo: username)
+          .get();
+      if (snapshot.docs.isNotEmpty) {
+        return snapshot.docs.first.data();
+      }
+      return null;
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error retrieving admin by username from Firestore: $e');
+      }
+      rethrow;
+    }
+  }
+
+  // Update admin data in Firestore
+  Future<void> updateAdminFirestore(
+      String id, Map<String, dynamic> admin) async {
+    try {
+      await _firestore.collection('admins').doc(id).update(admin);
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error updating admin in Firestore: $e');
+      }
+      rethrow;
+    }
+  }
+
+  // Delete an admin from Firestore
+  Future<void> deleteAdminFirestore(String id) async {
+    try {
+      await _firestore.collection('admins').doc(id).delete();
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error deleting admin in Firestore: $e');
+      }
+      rethrow;
+    }
+  }
+
+  // Insert or update admin in Firestore
+  Future<void> insertOrUpdateAdminFirestore(
+      String id, Map<String, dynamic> admin) async {
+    try {
+      await _firestore
+          .collection('admins')
+          .doc(id)
+          .set(admin, SetOptions(merge: true));
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error inserting or updating admin in Firestore: $e');
       }
       rethrow;
     }

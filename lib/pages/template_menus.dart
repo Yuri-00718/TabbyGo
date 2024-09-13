@@ -5,12 +5,13 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:tabby/pages/data_base_helper.dart';
 import 'package:tabby/pages/template_creation.dart';
+// ignore: depend_on_referenced_packages
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class TemplateMenus extends StatefulWidget {
   const TemplateMenus({super.key});
 
   @override
-  // ignore: library_private_types_in_public_api
   _TemplateMenusState createState() => _TemplateMenusState();
 }
 
@@ -45,6 +46,129 @@ class _TemplateMenusState extends State<TemplateMenus> {
     }
   }
 
+  Future<void> _syncTemplates() async {
+    try {
+      final firestore = FirebaseFirestore.instance;
+      final firestoreCollection = firestore.collection('templates');
+
+      // Retrieve local templates from SQLite
+      final localTemplates = await DatabaseHelper.instance.getTemplates();
+      final localTemplateIds =
+          localTemplates.map((template) => template['id'].toString()).toSet();
+      print('Local templates: $localTemplates');
+
+      // Retrieve templates from Firestore
+      final firestoreTemplatesSnapshot = await firestoreCollection.get();
+      final firestoreTemplateDocs = firestoreTemplatesSnapshot.docs;
+      final firestoreTemplateIds =
+          firestoreTemplateDocs.map((doc) => doc.id).toSet();
+      print('Firestore templates IDs: $firestoreTemplateIds');
+
+      // Create a map for easy access to Firestore templates
+      final firestoreTemplatesMap = {
+        for (var doc in firestoreTemplateDocs) doc.id: doc.data()
+      };
+
+      // Prepare lists for templates to add, update, and delete
+      final templatesToAdd = <Map<String, dynamic>>[];
+      final templatesToUpdate = <Map<String, dynamic>>[];
+      final templatesToDelete = <String>{};
+
+      // Track which templates have been synchronized to avoid duplication
+      final synchronizedTemplateIds =
+          await DatabaseHelper.instance.getSynchronizedTemplateIds();
+
+      // Determine which templates to add, update, or delete
+      for (final template in localTemplates) {
+        final templateId = template['id'].toString();
+        print('Processing local template ID: $templateId');
+
+        if (firestoreTemplateIds.contains(templateId)) {
+          // Template exists in Firestore, check if it needs to be updated
+          final firestoreTemplate = firestoreTemplatesMap[templateId];
+          if (firestoreTemplate != null &&
+              !_areTemplatesIdentical(firestoreTemplate, template)) {
+            templatesToUpdate.add(template);
+          }
+        } else {
+          // Template doesn't exist in Firestore, prepare to add
+          if (!synchronizedTemplateIds.contains(templateId)) {
+            templatesToAdd.add(template);
+          }
+        }
+      }
+
+      // Determine which templates to delete
+      final templatesInFirestoreNotInLocal =
+          firestoreTemplateIds.difference(localTemplateIds);
+      templatesToDelete.addAll(templatesInFirestoreNotInLocal);
+
+      // Perform batch operations for Firestore
+      final firestoreBatch = firestore.batch();
+      for (final template in templatesToAdd) {
+        final templateId = template['id'].toString();
+        firestoreBatch.set(firestoreCollection.doc(templateId), template,
+            SetOptions(merge: true));
+        print('Queueing addition of template ID: $templateId');
+      }
+      for (final template in templatesToUpdate) {
+        final templateId = template['id'].toString();
+        firestoreBatch.set(firestoreCollection.doc(templateId), template,
+            SetOptions(merge: true));
+        print('Queueing update of template ID: $templateId');
+      }
+      if (templatesToAdd.isNotEmpty || templatesToUpdate.isNotEmpty) {
+        await firestoreBatch.commit();
+        print('Batch operation committed to Firestore');
+      }
+
+      // Delete templates from local database
+      for (final id in templatesToDelete) {
+        await DatabaseHelper.instance.deleteTemplate(int.parse(id));
+        print('Deleted local template ID: $id');
+      }
+
+      // Insert or update Firestore templates in local SQLite
+      final updatedFirestoreTemplatesData = firestoreTemplateDocs.map((doc) {
+        final data = doc.data();
+        data['id'] = doc.id; // Ensure the Firestore document ID is stored
+        return data;
+      }).toList();
+      print('Updated Firestore templates data: $updatedFirestoreTemplatesData');
+
+      for (final templateData in updatedFirestoreTemplatesData) {
+        final templateId = templateData['id'];
+        if (!synchronizedTemplateIds.contains(templateId)) {
+          await DatabaseHelper.instance.insertOrUpdateTemplate(templateData);
+          print('Template synchronized from Firestore: $templateId');
+          await DatabaseHelper.instance.markTemplateAsSynchronized(templateId);
+        }
+      }
+
+      // Reload templates from local SQLite database
+      await _loadTemplates();
+
+      // Notify user of successful sync
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Templates synchronized successfully!')),
+      );
+    } catch (e) {
+      _handleError('Error syncing templates', e);
+      print('Sync error: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error syncing template: $e')),
+      );
+    }
+  }
+
+// Helper function to compare templates
+  bool _areTemplatesIdentical(Map<String, dynamic> firestoreTemplate,
+      Map<String, dynamic> localTemplate) {
+    // Compare relevant fields between the templates
+    return firestoreTemplate['eventName'] == localTemplate['eventName'] &&
+        firestoreTemplate['templateCode'] == localTemplate['templateCode'];
+  }
+
   void _navigateToTemplateCreation({Map<String, dynamic>? template}) async {
     await Navigator.push(
       context,
@@ -52,7 +176,7 @@ class _TemplateMenusState extends State<TemplateMenus> {
         builder: (context) => TemplateCreation(template: template),
       ),
     );
-    _loadTemplates(); // Reload templates after returning from the template creation screen
+    _loadTemplates();
   }
 
   Future<void> _editTemplate(Map<String, dynamic> template) async {
@@ -155,6 +279,10 @@ class _TemplateMenusState extends State<TemplateMenus> {
         ElevatedButton(
           onPressed: _resetDatabaseSchema,
           child: const Text('Delete All Templates'),
+        ),
+        ElevatedButton(
+          onPressed: _syncTemplates,
+          child: const Text('Sync Templates'),
         ),
       ],
     );

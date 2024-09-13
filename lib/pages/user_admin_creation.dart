@@ -77,7 +77,7 @@ class _AdminCreationState extends State<AdminCreation> {
       final adminData = {
         'name': name,
         'username': username,
-        'password': password, // Store hashed password
+        'password': password,
         'role': widget.role,
         'image': imagePath,
         'raw_password': password,

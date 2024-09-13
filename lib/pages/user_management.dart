@@ -2,17 +2,17 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-// ignore: depend_on_referenced_packages
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:tabby/pages/data_base_helper.dart';
-import 'package:tabby/pages/user_admin_creation.dart'; // Ensure you have this page
+import 'package:tabby/pages/user_admin_creation.dart';
 import 'package:tabby/pages/user_judge_creation.dart';
+// ignore: depend_on_referenced_packages
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class UserManagement extends StatefulWidget {
   const UserManagement({super.key});
 
   @override
-  // ignore: library_private_types_in_public_api
   _UserManagementState createState() => _UserManagementState();
 }
 
@@ -120,6 +120,23 @@ class _UserManagementState extends State<UserManagement> {
         ),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
+      bottomNavigationBar: BottomAppBar(
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            ElevatedButton(
+              onPressed: _syncData,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF6A5AE0),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(25),
+                ),
+              ),
+              child: const Text('Sync Data'),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -213,7 +230,7 @@ class _UserManagementState extends State<UserManagement> {
             onTap: () {
               setState(() {
                 _isJudgesSelected = true;
-                _judgesFuture = _fetchJudges(); // Refresh judges list
+                _judgesFuture = _fetchJudges();
               });
             },
             child: _buildButton('Judges', _isJudgesSelected),
@@ -225,7 +242,7 @@ class _UserManagementState extends State<UserManagement> {
             onTap: () {
               setState(() {
                 _isJudgesSelected = false;
-                _adminsFuture = _fetchAdmins(); // Refresh admins list
+                _adminsFuture = _fetchAdmins();
               });
             },
             child: _buildButton('Admin', !_isJudgesSelected),
@@ -248,7 +265,7 @@ class _UserManagementState extends State<UserManagement> {
       child: Center(
         child: Text(
           text,
-          style: GoogleFonts.rubik(
+          style: GoogleFonts.poppins(
             fontWeight: FontWeight.w500,
             fontSize: 16,
             color:
@@ -259,116 +276,74 @@ class _UserManagementState extends State<UserManagement> {
     );
   }
 
+  Future<void> _handleRefresh() async {
+    setState(() {
+      if (_isJudgesSelected) {
+        _judgesFuture = _fetchJudges();
+      } else {
+        _adminsFuture = _fetchAdmins();
+      }
+    });
+  }
+
   Widget _buildJudgeListSection() {
-    return FutureBuilder<List<Map<String, dynamic>>>(
-      future: _judgesFuture,
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
-        } else if (snapshot.hasError) {
-          return Center(child: Text('Error: ${snapshot.error}'));
-        } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-          return const Center(child: Text('No judges found.'));
-        } else {
-          final judges = snapshot.data!;
-          return ListView.builder(
-            padding: EdgeInsets.zero,
-            itemCount: judges.length,
-            itemBuilder: (context, index) {
-              final judge = judges[index];
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 16.0),
-                child: _buildUserCard(judge, 'Judge'),
-              );
-            },
-          );
-        }
-      },
+    return RefreshIndicator(
+      onRefresh: _handleRefresh,
+      child: FutureBuilder<List<Map<String, dynamic>>>(
+        future: _judgesFuture,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          } else if (snapshot.hasError) {
+            return Center(child: Text('Error: ${snapshot.error}'));
+          } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
+            return const Center(child: Text('No judges found.'));
+          } else {
+            final judges = snapshot.data!;
+            return ListView.builder(
+              padding: EdgeInsets.zero,
+              itemCount: judges.length,
+              itemBuilder: (context, index) {
+                final judge = judges[index];
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 16.0),
+                  child: _buildUserCard(judge, 'Judge'),
+                );
+              },
+            );
+          }
+        },
+      ),
     );
   }
 
   Widget _buildAdminListSection() {
-    return FutureBuilder<List<Map<String, dynamic>>>(
-      future: _adminsFuture,
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
-        } else if (snapshot.hasError) {
-          return Center(child: Text('Error: ${snapshot.error}'));
-        } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-          return const Center(child: Text('No admins found.'));
-        } else {
-          final admins = snapshot.data!;
-          return ListView.builder(
-            padding: EdgeInsets.zero,
-            itemCount: admins.length,
-            itemBuilder: (context, index) {
-              final admin = admins[index];
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 16.0),
-                child: _buildAdminCard(admin),
-              );
-            },
-          );
-        }
-      },
-    );
-  }
-
-  Widget _buildAdminCard(Map<String, dynamic> admin) {
-    return GestureDetector(
-      child: Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(15),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Row(
-            children: [
-              CircleAvatar(
-                radius: 30,
-                backgroundColor: Colors.grey[300],
-                backgroundImage:
-                    admin['image'] != null && admin['image'].isNotEmpty
-                        ? FileImage(File(admin['image']))
-                        : null,
-                child: admin['image'] == null || admin['image'].isEmpty
-                    ? Text(admin['name'][0].toUpperCase(),
-                        style: const TextStyle(fontSize: 24))
-                    : null,
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(admin['name'] ?? 'N/A',
-                        style: GoogleFonts.poppins(fontSize: 16)),
-                    Text(admin['username'] ?? 'N/A',
-                        style: GoogleFonts.poppins(
-                            fontSize: 14, color: Colors.grey)),
-                  ],
-                ),
-              ),
-              PopupMenuButton<String>(
-                onSelected: (value) {
-                  if (value == 'Edit') {
-                    _editAdmin(admin);
-                  } else if (value == 'Delete') {
-                    _deleteAdmin(admin['id'] as int);
-                  }
-                },
-                itemBuilder: (BuildContext context) {
-                  return [
-                    const PopupMenuItem(value: 'Edit', child: Text('Edit')),
-                    const PopupMenuItem(value: 'Delete', child: Text('Delete')),
-                  ];
-                },
-              ),
-            ],
-          ),
-        ),
+    return RefreshIndicator(
+      onRefresh: _handleRefresh,
+      child: FutureBuilder<List<Map<String, dynamic>>>(
+        future: _adminsFuture,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          } else if (snapshot.hasError) {
+            return Center(child: Text('Error: ${snapshot.error}'));
+          } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
+            return const Center(child: Text('No admins found.'));
+          } else {
+            final admins = snapshot.data!;
+            return ListView.builder(
+              padding: EdgeInsets.zero,
+              itemCount: admins.length,
+              itemBuilder: (context, index) {
+                final admin = admins[index];
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 16.0),
+                  child: _buildUserCard(admin, 'Admin'),
+                );
+              },
+            );
+          }
+        },
       ),
     );
   }
@@ -405,17 +380,26 @@ class _UserManagementState extends State<UserManagement> {
                   children: [
                     Text(user['name'] ?? 'N/A',
                         style: GoogleFonts.poppins(fontSize: 16)),
-                    Text(
-                        user['role'] ??
-                            type, // Default to type if role is missing
+                    if (type == 'Admin')
+                      Text(
+                        'Administrator',
                         style: GoogleFonts.poppins(
-                            fontSize: 14, color: Colors.grey)),
-                    Text(
-                      user['template'] ??
-                          'No event assigned', // Default to 'No event assigned'
-                      style: GoogleFonts.poppins(
-                          fontSize: 12, color: Colors.blueAccent),
-                    ),
+                            fontSize: 14,
+                            color: const Color.fromARGB(255, 122, 30, 241)),
+                      )
+                    else
+                      Text(
+                        user['role'] ?? type,
+                        style: GoogleFonts.poppins(
+                            fontSize: 14, color: Colors.grey),
+                      ),
+                    if (type != 'Admin')
+                      Text(
+                        user['template'] ?? 'No event assigned',
+                        style: GoogleFonts.poppins(
+                            fontSize: 12,
+                            color: const Color.fromARGB(255, 82, 15, 207)),
+                      ),
                   ],
                 ),
               ),
@@ -496,7 +480,7 @@ class _UserManagementState extends State<UserManagement> {
     // Show loading dialog
     showDialog(
       context: context,
-      barrierDismissible: false, // Prevent dismiss by tapping outside
+      barrierDismissible: false,
       builder: (context) => const Center(child: CircularProgressIndicator()),
     );
 
@@ -530,14 +514,69 @@ class _UserManagementState extends State<UserManagement> {
   }
 
   Future<List<Map<String, dynamic>>> _fetchJudges() async {
-    final dbHelper = DatabaseHelper.instance;
-    final result = await dbHelper.getJudges();
-    return result;
+    final db = DatabaseHelper.instance;
+    final List<Map<String, dynamic>> judges = await db.getJudges();
+    return judges;
   }
 
   Future<List<Map<String, dynamic>>> _fetchAdmins() async {
-    final dbHelper = DatabaseHelper.instance;
-    final result = await dbHelper.getAdmins();
-    return result;
+    final db = DatabaseHelper.instance;
+    final List<Map<String, dynamic>> admins = await db.getAdmins();
+    return admins;
+  }
+
+  Future<void> _syncData() async {
+    // Retrieve data from SQLite
+    final db = DatabaseHelper.instance;
+    final judges = await db.getJudges();
+    final admins = await db.getAdmins();
+
+    // Firestore instance
+    final firestore = FirebaseFirestore.instance;
+
+    // Sync Judges
+    for (final judge in judges) {
+      final judgeId = judge['id'].toString(); // Convert to String
+      final existingDoc =
+          await firestore.collection('judges').doc(judgeId).get();
+      if (existingDoc.exists) {
+        // Update Firestore
+        await firestore.collection('judges').doc(judgeId).update(judge);
+      } else {
+        // Add new Firestore document
+        await firestore.collection('judges').doc(judgeId).set(judge);
+      }
+    }
+
+    // Sync Admins
+    for (final admin in admins) {
+      final adminId = admin['id'].toString();
+      final adminWithCorrectRole = {
+        ...admin,
+        'role': 'Administrator',
+      };
+
+      final existingDoc =
+          await firestore.collection('admins').doc(adminId).get();
+      if (existingDoc.exists) {
+        // Update Firestore with correct role
+        await firestore
+            .collection('admins')
+            .doc(adminId)
+            .update(adminWithCorrectRole);
+      } else {
+        // Add new Firestore document with correct role
+        await firestore
+            .collection('admins')
+            .doc(adminId)
+            .set(adminWithCorrectRole);
+      }
+    }
+
+    // Notify user of successful sync
+    // ignore: use_build_context_synchronously
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Data synchronized successfully!')),
+    );
   }
 }

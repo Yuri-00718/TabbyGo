@@ -25,15 +25,19 @@ dev_dependencies:
   flutter_lints: ^4.0.0
   flutter_svg: ^2.0.10+1
   crypto: ^3.0.1
-  firebase_core: ^3.3.0
+  firebase_core: ^3.4.1
   firebase_auth: ^5.1.4
   connectivity_plus: ^3.0.3
+  cloud_firestore: ^5.4.1
   
 flutter:
   uses-material-design: true
   assets:
   - assets/images/
   - assets/vectors/
+  - assets/images/admin.jpg
+  - assets/images/Organizer.jpg
+  - assets/images/judge.jpg
   - assets/images/menu.png
   - assets/images/Happy_Cat.png
   - assets/images/untitled_design_1.png

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:tabby/pages/user_auth.dart';
-import 'package:tabby/pages/regis_user.dart';
 
 class LoginRoleSelection extends StatelessWidget {
   const LoginRoleSelection({super.key});
@@ -9,25 +8,35 @@ class LoginRoleSelection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF6A5AE0), // Background color
-      body: Center(
+      backgroundColor: const Color(0xFF6A5AE0),
+      body: Padding(
+        padding: const EdgeInsets.only(
+            top: 90, left: 15, right: 15), // Added space from the top
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Login As',
-              style: GoogleFonts.poppins(
-                fontWeight: FontWeight.w600,
+              'Select',
+              style: GoogleFonts.rubik(
+                fontWeight: FontWeight.w700,
                 fontSize: 32,
-                color: const Color(0xFFFFFFFF),
+                color: const Color(0xFFFFD6DD),
               ),
             ),
-            const SizedBox(height: 40),
-            _buildLoginButton(
+            Text(
+              'User Type',
+              style: GoogleFonts.rubik(
+                fontWeight: FontWeight.w700,
+                fontSize: 32,
+                color: const Color(0xFFFFD6DD),
+              ),
+            ),
+            const SizedBox(height: 30), // Adjust space after the title
+            _buildRoleButton(
               context,
               'Judge',
+              'assets/images/judge.jpg',
               onTap: () {
-                // Navigate to Authentication Module for Judge login
                 Navigator.push(
                   context,
                   MaterialPageRoute(
@@ -38,11 +47,11 @@ class LoginRoleSelection extends StatelessWidget {
               },
             ),
             const SizedBox(height: 20),
-            _buildLoginButton(
+            _buildRoleButton(
               context,
               'Admin',
+              'assets/images/admin.jpg',
               onTap: () {
-                // Navigate to Authentication Module for Admin login
                 Navigator.push(
                   context,
                   MaterialPageRoute(
@@ -52,33 +61,14 @@ class LoginRoleSelection extends StatelessWidget {
                 );
               },
             ),
-            const SizedBox(height: 40),
-            GestureDetector(
+            const SizedBox(height: 20),
+            _buildRoleButton(
+              context,
+              'Organizer',
+              'assets/images/Organizer.jpg',
               onTap: () {
-                // Navigate to Registration Module
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const RegistrationScreen(),
-                  ),
-                );
+                // Handle Organizer login
               },
-              child: Container(
-                padding:
-                    const EdgeInsets.symmetric(vertical: 10, horizontal: 20),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(15),
-                ),
-                child: Text(
-                  'Register',
-                  style: GoogleFonts.poppins(
-                    fontWeight: FontWeight.w600,
-                    fontSize: 24,
-                    color: const Color(0xFFFFFFFF),
-                  ),
-                ),
-              ),
             ),
           ],
         ),
@@ -86,23 +76,47 @@ class LoginRoleSelection extends StatelessWidget {
     );
   }
 
-  Widget _buildLoginButton(BuildContext context, String role,
+  Widget _buildRoleButton(BuildContext context, String role, String imagePath,
       {required VoidCallback onTap}) {
-    return ElevatedButton(
-      onPressed: onTap,
-      style: ElevatedButton.styleFrom(
-        backgroundColor: const Color(0xFFFFCCD5), // Button background color
-        shape: RoundedRectangleBorder(
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 10),
+        padding: const EdgeInsets.symmetric(vertical: 30, horizontal: 15),
+        decoration: BoxDecoration(
+          color: Colors.white,
           borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.3),
+              spreadRadius: 2,
+              blurRadius: 5,
+              offset: const Offset(0, 3),
+            ),
+          ],
         ),
-        padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 20),
-      ),
-      child: Text(
-        'Login as $role',
-        style: GoogleFonts.poppins(
-          fontWeight: FontWeight.w500,
-          fontSize: 18,
-          color: const Color(0xFF660012), // Text color
+        child: Row(
+          children: [
+            Image.asset(
+              imagePath,
+              width: 100,
+              height: 100,
+              fit: BoxFit.cover,
+              cacheWidth: 100,
+              cacheHeight: 100,
+            ),
+            const SizedBox(width: 20),
+            Expanded(
+              child: Text(
+                'Login as $role',
+                style: GoogleFonts.poppins(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 20,
+                  color: const Color.fromARGB(255, 136, 78, 243),
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
