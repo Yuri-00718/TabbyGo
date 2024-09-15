@@ -29,6 +29,7 @@ dev_dependencies:
   firebase_auth: ^5.1.4
   connectivity_plus: ^3.0.3
   cloud_firestore: ^5.4.1
+  google_sign_in: ^6.2.1
   
 flutter:
   uses-material-design: true

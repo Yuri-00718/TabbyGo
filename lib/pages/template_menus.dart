@@ -12,6 +12,7 @@ class TemplateMenus extends StatefulWidget {
   const TemplateMenus({super.key});
 
   @override
+  // ignore: library_private_types_in_public_api
   _TemplateMenusState createState() => _TemplateMenusState();
 }
 
@@ -55,14 +56,18 @@ class _TemplateMenusState extends State<TemplateMenus> {
       final localTemplates = await DatabaseHelper.instance.getTemplates();
       final localTemplateIds =
           localTemplates.map((template) => template['id'].toString()).toSet();
-      print('Local templates: $localTemplates');
+      if (kDebugMode) {
+        print('Local templates: $localTemplates');
+      }
 
       // Retrieve templates from Firestore
       final firestoreTemplatesSnapshot = await firestoreCollection.get();
       final firestoreTemplateDocs = firestoreTemplatesSnapshot.docs;
       final firestoreTemplateIds =
           firestoreTemplateDocs.map((doc) => doc.id).toSet();
-      print('Firestore templates IDs: $firestoreTemplateIds');
+      if (kDebugMode) {
+        print('Firestore templates IDs: $firestoreTemplateIds');
+      }
 
       // Create a map for easy access to Firestore templates
       final firestoreTemplatesMap = {
@@ -81,7 +86,9 @@ class _TemplateMenusState extends State<TemplateMenus> {
       // Determine which templates to add, update, or delete
       for (final template in localTemplates) {
         final templateId = template['id'].toString();
-        print('Processing local template ID: $templateId');
+        if (kDebugMode) {
+          print('Processing local template ID: $templateId');
+        }
 
         if (firestoreTemplateIds.contains(templateId)) {
           // Template exists in Firestore, check if it needs to be updated
@@ -109,23 +116,31 @@ class _TemplateMenusState extends State<TemplateMenus> {
         final templateId = template['id'].toString();
         firestoreBatch.set(firestoreCollection.doc(templateId), template,
             SetOptions(merge: true));
-        print('Queueing addition of template ID: $templateId');
+        if (kDebugMode) {
+          print('Queueing addition of template ID: $templateId');
+        }
       }
       for (final template in templatesToUpdate) {
         final templateId = template['id'].toString();
         firestoreBatch.set(firestoreCollection.doc(templateId), template,
             SetOptions(merge: true));
-        print('Queueing update of template ID: $templateId');
+        if (kDebugMode) {
+          print('Queueing update of template ID: $templateId');
+        }
       }
       if (templatesToAdd.isNotEmpty || templatesToUpdate.isNotEmpty) {
         await firestoreBatch.commit();
-        print('Batch operation committed to Firestore');
+        if (kDebugMode) {
+          print('Batch operation committed to Firestore');
+        }
       }
 
       // Delete templates from local database
       for (final id in templatesToDelete) {
         await DatabaseHelper.instance.deleteTemplate(int.parse(id));
-        print('Deleted local template ID: $id');
+        if (kDebugMode) {
+          print('Deleted local template ID: $id');
+        }
       }
 
       // Insert or update Firestore templates in local SQLite
@@ -134,13 +149,18 @@ class _TemplateMenusState extends State<TemplateMenus> {
         data['id'] = doc.id; // Ensure the Firestore document ID is stored
         return data;
       }).toList();
-      print('Updated Firestore templates data: $updatedFirestoreTemplatesData');
+      if (kDebugMode) {
+        print(
+            'Updated Firestore templates data: $updatedFirestoreTemplatesData');
+      }
 
       for (final templateData in updatedFirestoreTemplatesData) {
         final templateId = templateData['id'];
         if (!synchronizedTemplateIds.contains(templateId)) {
           await DatabaseHelper.instance.insertOrUpdateTemplate(templateData);
-          print('Template synchronized from Firestore: $templateId');
+          if (kDebugMode) {
+            print('Template synchronized from Firestore: $templateId');
+          }
           await DatabaseHelper.instance.markTemplateAsSynchronized(templateId);
         }
       }
@@ -149,6 +169,7 @@ class _TemplateMenusState extends State<TemplateMenus> {
       await _loadTemplates();
 
       // Notify user of successful sync
+      // ignore: use_build_context_synchronously
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Templates synchronized successfully!')),
       );

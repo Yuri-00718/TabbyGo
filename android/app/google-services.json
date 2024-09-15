@@ -12,7 +12,12 @@
           "package_name": "com.example.tabby"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "175547730349-r9nitr7hqo5dkq30mtrteb4rkpp8rfjq.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyB1wtQF-LxWJd8fjRX7-d5lTurEDlX0TAU"
@@ -20,7 +25,12 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "175547730349-r9nitr7hqo5dkq30mtrteb4rkpp8rfjq.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     }

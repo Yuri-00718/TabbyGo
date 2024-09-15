@@ -10,6 +10,7 @@ class RegistrationScreen extends StatefulWidget {
   const RegistrationScreen({super.key, required this.role});
 
   @override
+  // ignore: library_private_types_in_public_api
   _RegistrationScreenState createState() => _RegistrationScreenState();
 }
 

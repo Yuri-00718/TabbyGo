@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:tabby/pages/data_base_helper.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 
 class AuthenticationScreen extends StatefulWidget {
   final String role;
@@ -25,6 +26,7 @@ class _AuthenticationScreenState extends State<AuthenticationScreen> {
   bool _passwordVisible = false;
   bool _isOnline = true;
   bool _checkingConnection = false;
+  final GoogleSignIn _googleSignIn = GoogleSignIn();
 
   @override
   void initState() {
@@ -113,6 +115,27 @@ class _AuthenticationScreenState extends State<AuthenticationScreen> {
       }
     } catch (e) {
       _showErrorDialog('An error occurred during offline login.');
+    }
+  }
+
+  Future<void> _signInWithGoogle() async {
+    try {
+      final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
+      final GoogleSignInAuthentication googleAuth =
+          await googleUser!.authentication;
+
+      final credential = GoogleAuthProvider.credential(
+        accessToken: googleAuth.accessToken,
+        idToken: googleAuth.idToken,
+      );
+
+      await FirebaseAuth.instance.signInWithCredential(credential);
+
+      Navigator.pushReplacementNamed(context, '/dashBoard');
+    } catch (e) {
+      print('Error during Google Sign-In: $e');
+      _showErrorDialog(
+          'An error occurred during Google Sign-In. Please try again.');
     }
   }
 
@@ -274,9 +297,7 @@ class _AuthenticationScreenState extends State<AuthenticationScreen> {
                               ),
                               const SizedBox(height: 10),
                               GestureDetector(
-                                onTap: () {
-                                  // Implement Google Sign-In logic here
-                                },
+                                onTap: _signInWithGoogle,
                                 child: Image.asset(
                                   'assets/images/Google_Icon.png',
                                   width: 40,
@@ -299,7 +320,7 @@ class _AuthenticationScreenState extends State<AuthenticationScreen> {
   }
 
   Widget _buildTextField(
-    String hintText, {
+    String labelText, {
     required IconData icon,
     required TextEditingController controller,
     bool isPassword = false,
@@ -308,16 +329,8 @@ class _AuthenticationScreenState extends State<AuthenticationScreen> {
       controller: controller,
       obscureText: isPassword && !_passwordVisible,
       decoration: InputDecoration(
-        filled: true,
-        fillColor: Colors.grey[200],
-        hintText: hintText,
-        hintStyle: GoogleFonts.poppins(
-          color: Colors.black.withOpacity(0.7),
-        ),
-        prefixIcon: Icon(
-          icon,
-          color: Colors.black,
-        ),
+        prefixIcon: Icon(icon, color: Colors.black),
+        labelText: labelText,
         suffixIcon: isPassword
             ? IconButton(
                 icon: Icon(
@@ -332,15 +345,12 @@ class _AuthenticationScreenState extends State<AuthenticationScreen> {
               )
             : null,
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide.none,
+          borderRadius: BorderRadius.circular(10),
         ),
-        contentPadding:
-            const EdgeInsets.symmetric(vertical: 15, horizontal: 20),
       ),
       validator: (value) {
         if (value == null || value.isEmpty) {
-          return 'Please enter some text';
+          return 'This field cannot be empty';
         }
         return null;
       },

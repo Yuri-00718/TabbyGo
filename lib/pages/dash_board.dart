@@ -1,5 +1,4 @@
 import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 // ignore: depend_on_referenced_packages
@@ -9,16 +8,20 @@ import 'package:tabby/pages/result_and_reports_active_events.dart';
 import 'package:tabby/pages/template_menus.dart';
 // ignore: depend_on_referenced_packages
 import 'package:connectivity_plus/connectivity_plus.dart';
+// ignore: depend_on_referenced_packages
+import 'package:firebase_auth/firebase_auth.dart';
+// ignore: depend_on_referenced_packages
+import 'package:google_sign_in/google_sign_in.dart';
 
 class DashBoard extends StatefulWidget {
   const DashBoard({super.key});
 
   @override
-  // ignore: library_private_types_in_public_api
   _DashBoardState createState() => _DashBoardState();
 }
 
 class _DashBoardState extends State<DashBoard> {
+  final GoogleSignIn _googleSignIn = GoogleSignIn();
   bool _isOffline = false;
   Timer? _bannerTimer;
 
@@ -54,6 +57,16 @@ class _DashBoardState extends State<DashBoard> {
     });
   }
 
+  Future<void> _signOut() async {
+    try {
+      await _googleSignIn.signOut();
+      await FirebaseAuth.instance.signOut();
+      Navigator.of(context).pushReplacementNamed('/role');
+    } catch (e) {
+      print("Error signing out: $e");
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -61,7 +74,6 @@ class _DashBoardState extends State<DashBoard> {
         color: const Color(0xFF6A5AE0),
         child: Column(
           children: [
-            // Banner for connectivity status
             if (_isOffline || (_bannerTimer != null && _bannerTimer!.isActive))
               Container(
                 width: double.infinity,
@@ -79,7 +91,6 @@ class _DashBoardState extends State<DashBoard> {
                   ),
                 ),
               ),
-            // Fixed Greeting Section
             Container(
               height: 200,
               color: const Color(0xFF6A5AE0),
@@ -88,7 +99,6 @@ class _DashBoardState extends State<DashBoard> {
                 child: _buildGreeting(context),
               ),
             ),
-            // Scrollable Content
             Expanded(
               child: SingleChildScrollView(
                 child: Column(
@@ -149,8 +159,7 @@ class _DashBoardState extends State<DashBoard> {
 
   Widget _buildGreeting(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(
-          horizontal: 16.0), // Adjust padding as needed
+      padding: const EdgeInsets.symmetric(horizontal: 16.0),
       child: ConstrainedBox(
         constraints: BoxConstraints(
           maxHeight: MediaQuery.of(context).size.height * 0.2,
@@ -184,7 +193,7 @@ class _DashBoardState extends State<DashBoard> {
                 ),
               ],
             ),
-            const SizedBox(height: 8), // Adjust spacing between rows
+            const SizedBox(height: 8),
             Row(
               children: [
                 Text(
@@ -197,7 +206,7 @@ class _DashBoardState extends State<DashBoard> {
                     color: const Color(0xFFFFFFFF),
                   ),
                 ),
-                const SizedBox(width: 8), // Space between text and icon
+                const SizedBox(width: 8),
                 IconButton(
                   icon: const Icon(
                     Icons.logout,
@@ -229,9 +238,9 @@ class _DashBoardState extends State<DashBoard> {
               child: const Text('Cancel'),
             ),
             TextButton(
-              onPressed: () {
+              onPressed: () async {
                 Navigator.of(context).pop();
-                Navigator.of(context).pushReplacementNamed('/role');
+                await _signOut();
               },
               child: const Text('Logout'),
             ),
@@ -274,8 +283,7 @@ class _DashBoardState extends State<DashBoard> {
                   ),
                   child: const SizedBox(
                     width: 130,
-                    height:
-                        150, // Ensure this height matches the container's height
+                    height: 150,
                   ),
                 ),
               ),

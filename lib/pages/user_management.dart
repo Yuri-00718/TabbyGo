@@ -78,7 +78,7 @@ class _UserManagementState extends State<UserManagement> {
             // Show loading dialog
             showDialog(
               context: context,
-              barrierDismissible: false, // Prevent dismiss by tapping outside
+              barrierDismissible: false,
               builder: (context) =>
                   const Center(child: CircularProgressIndicator()),
             );
