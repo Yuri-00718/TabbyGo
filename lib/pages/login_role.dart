@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:tabby/pages/user_auth.dart';
+import 'package:tabby/pages/user_signup_login.dart'; // Import the new Dart file
 
 class LoginRoleSelection extends StatelessWidget {
   const LoginRoleSelection({super.key});
@@ -10,8 +10,7 @@ class LoginRoleSelection extends StatelessWidget {
     return Scaffold(
       backgroundColor: const Color(0xFF6A5AE0),
       body: Padding(
-        padding: const EdgeInsets.only(
-            top: 90, left: 15, right: 15), // Added space from the top
+        padding: const EdgeInsets.only(top: 90, left: 15, right: 15),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -31,7 +30,7 @@ class LoginRoleSelection extends StatelessWidget {
                 color: const Color(0xFFFFD6DD),
               ),
             ),
-            const SizedBox(height: 30), // Adjust space after the title
+            const SizedBox(height: 30),
             _buildRoleButton(
               context,
               'Judge',
@@ -41,7 +40,7 @@ class LoginRoleSelection extends StatelessWidget {
                   context,
                   MaterialPageRoute(
                     builder: (context) =>
-                        const AuthenticationScreen(role: 'Judge'),
+                        const UserSignUpLoginScreen(role: 'Judge'),
                   ),
                 );
               },
@@ -56,7 +55,7 @@ class LoginRoleSelection extends StatelessWidget {
                   context,
                   MaterialPageRoute(
                     builder: (context) =>
-                        const AuthenticationScreen(role: 'Admin'),
+                        const UserSignUpLoginScreen(role: 'Admin'),
                   ),
                 );
               },
@@ -67,7 +66,13 @@ class LoginRoleSelection extends StatelessWidget {
               'Organizer',
               'assets/images/Organizer.jpg',
               onTap: () {
-                // Handle Organizer login
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) =>
+                        const UserSignUpLoginScreen(role: 'Organizer'),
+                  ),
+                );
               },
             ),
           ],
@@ -108,10 +113,10 @@ class LoginRoleSelection extends StatelessWidget {
             const SizedBox(width: 20),
             Expanded(
               child: Text(
-                'Login as $role',
+                ' $role',
                 style: GoogleFonts.poppins(
                   fontWeight: FontWeight.w600,
-                  fontSize: 20,
+                  fontSize: 30,
                   color: const Color.fromARGB(255, 136, 78, 243),
                 ),
               ),

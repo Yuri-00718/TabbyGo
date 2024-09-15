@@ -35,6 +35,7 @@ flutter:
   assets:
   - assets/images/
   - assets/vectors/
+  - assets/images/Google_Icon.png
   - assets/images/admin.jpg
   - assets/images/Organizer.jpg
   - assets/images/judge.jpg

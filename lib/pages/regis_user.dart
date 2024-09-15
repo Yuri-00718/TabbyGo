@@ -1,13 +1,15 @@
-// ignore: depend_on_referenced_packages
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+// ignore: depend_on_referenced_packages
+import 'package:firebase_auth/firebase_auth.dart';
+// ignore: depend_on_referenced_packages
+import 'package:connectivity_plus/connectivity_plus.dart';
 
 class RegistrationScreen extends StatefulWidget {
-  const RegistrationScreen({super.key});
+  final String role;
+  const RegistrationScreen({super.key, required this.role});
 
   @override
-  // ignore: library_private_types_in_public_api
   _RegistrationScreenState createState() => _RegistrationScreenState();
 }
 
@@ -16,9 +18,28 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   final _passwordController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
   bool _passwordVisible = false;
-  String _selectedRole = 'Judge'; // Default role
+  bool _isOnline = true;
+  bool _checkingConnection = false;
 
-  void _register() async {
+  @override
+  void initState() {
+    super.initState();
+    _checkConnectivity();
+  }
+
+  void _checkConnectivity() async {
+    setState(() {
+      _checkingConnection = true;
+    });
+    var connectivityResult = await (Connectivity().checkConnectivity());
+    setState(() {
+      _isOnline = connectivityResult == ConnectivityResult.mobile ||
+          connectivityResult == ConnectivityResult.wifi;
+      _checkingConnection = false;
+    });
+  }
+
+  Future<void> _register() async {
     if (_formKey.currentState?.validate() ?? false) {
       final email = _emailController.text;
       final password = _passwordController.text;
@@ -28,11 +49,9 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
           email: email,
           password: password,
         );
-        // Registration successful
         // ignore: use_build_context_synchronously
         Navigator.pushReplacementNamed(context, '/dashBoard');
       } catch (e) {
-        // Registration failed
         _showErrorDialog(e.toString());
       }
     }
@@ -62,132 +81,179 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFF6A5AE0),
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: Container(
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(15),
-            ),
-            child: Form(
-              key: _formKey,
+      body: SingleChildScrollView(
+        child: Column(
+          children: [
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(20.0),
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.only(
+                  bottomLeft: Radius.circular(30),
+                  bottomRight: Radius.circular(30),
+                ),
+              ),
+              height: MediaQuery.of(context).size.height *
+                  0.6, // Adjust the height as needed
               child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  const SizedBox(height: 40),
+                  Row(
+                    children: [
+                      GestureDetector(
+                        onTap: () {
+                          Navigator.pop(context);
+                        },
+                        child: ColorFiltered(
+                          colorFilter: const ColorFilter.mode(
+                            Color(0xFF6A5AE0), // Arrow color
+                            BlendMode.srcIn,
+                          ),
+                          child: Image.asset(
+                            'assets/images/Back_Arrow.png',
+                            width: 30,
+                            height: 30,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          'Register as ${widget.role}!',
+                          style: GoogleFonts.poppins(
+                            color: const Color(0xFF6A5AE0),
+                            fontSize: 28,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
                   Text(
-                    'Register',
+                    'Please sign up to create your account.',
                     style: GoogleFonts.poppins(
-                      fontWeight: FontWeight.w500,
-                      fontSize: 24,
-                      color: const Color(0xFF482970),
+                      color: Colors.black,
+                      fontSize: 16,
                     ),
                   ),
-                  const SizedBox(height: 16),
-                  DropdownButtonFormField<String>(
-                    value: _selectedRole,
-                    onChanged: (String? newValue) {
-                      setState(() {
-                        _selectedRole = newValue!;
-                      });
-                    },
-                    items: <String>['Judge', 'Admin']
-                        .map<DropdownMenuItem<String>>((String value) {
-                      return DropdownMenuItem<String>(
-                        value: value,
-                        child: Text(value),
-                      );
-                    }).toList(),
-                    decoration: InputDecoration(
-                      labelText: 'Role',
-                      labelStyle: GoogleFonts.poppins(color: Colors.black),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
+                  const SizedBox(height: 50),
+                  if (_checkingConnection)
+                    const Center(child: CircularProgressIndicator())
+                  else
+                    Text(
+                      _isOnline
+                          ? 'Connected to the Internet'
+                          : 'You are using Tabby Offline Mode',
+                      style: TextStyle(
+                        color: _isOnline ? Colors.green : Colors.red,
+                        fontWeight: FontWeight.bold,
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 16),
-                  _buildTextFormField(
-                    controller: _emailController,
-                    label: 'Email',
-                    validator: (value) => value == null || value.isEmpty
-                        ? 'Please enter email'
-                        : null,
-                  ),
-                  const SizedBox(height: 16),
-                  _buildTextFormField(
-                    controller: _passwordController,
-                    label: 'Password',
-                    obscureText: !_passwordVisible,
-                    validator: (value) => value == null || value.isEmpty
-                        ? 'Please enter password'
-                        : null,
-                    toggleVisibility: () {
-                      setState(() {
-                        _passwordVisible = !_passwordVisible;
-                      });
-                    },
-                  ),
-                  const SizedBox(height: 24),
-                  Center(
-                    child: ElevatedButton(
-                      onPressed: _register,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF6A5AE0),
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 24, vertical: 12),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
+                  const SizedBox(height: 20),
+                  Form(
+                    key: _formKey,
+                    child: Column(
+                      children: [
+                        // Email Input Field
+                        _buildTextField(
+                          'Email',
+                          icon: Icons.email_outlined,
+                          controller: _emailController,
                         ),
-                      ),
-                      child: Text(
-                        'Register',
-                        style: GoogleFonts.poppins(
-                          fontWeight: FontWeight.w500,
-                          fontSize: 16,
-                          color: Colors.white,
+                        const SizedBox(height: 20),
+
+                        // Password Input Field
+                        _buildTextField(
+                          'Password',
+                          icon: Icons.lock_outline,
+                          controller: _passwordController,
+                          isPassword: true,
                         ),
-                      ),
+                        const SizedBox(height: 40),
+
+                        // Register Button
+                        Center(
+                          child: ElevatedButton(
+                            onPressed: _register,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF6A5AE0),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 40, vertical: 15),
+                            ),
+                            child: Text(
+                              'Register',
+                              style: GoogleFonts.poppins(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ],
               ),
             ),
-          ),
+          ],
         ),
       ),
     );
   }
 
-  Widget _buildTextFormField({
+  Widget _buildTextField(
+    String hintText, {
+    required IconData icon,
     required TextEditingController controller,
-    required String label,
-    bool obscureText = false,
-    required FormFieldValidator<String> validator,
-    VoidCallback? toggleVisibility,
+    bool isPassword = false,
   }) {
     return TextFormField(
       controller: controller,
-      obscureText: obscureText,
+      obscureText: isPassword && !_passwordVisible,
       decoration: InputDecoration(
-        labelText: label,
-        labelStyle: GoogleFonts.poppins(color: Colors.black),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
+        filled: true,
+        fillColor: Colors.grey[200],
+        hintText: hintText,
+        hintStyle: GoogleFonts.poppins(
+          color: Colors.black.withOpacity(0.7),
         ),
-        suffixIcon: toggleVisibility != null
+        prefixIcon: Icon(
+          icon,
+          color: Colors.black,
+        ),
+        suffixIcon: isPassword
             ? IconButton(
                 icon: Icon(
-                  obscureText ? Icons.visibility : Icons.visibility_off,
+                  _passwordVisible ? Icons.visibility : Icons.visibility_off,
+                  color: Colors.black,
                 ),
-                onPressed: toggleVisibility,
+                onPressed: () {
+                  setState(() {
+                    _passwordVisible = !_passwordVisible;
+                  });
+                },
               )
             : null,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide.none,
+        ),
+        contentPadding:
+            const EdgeInsets.symmetric(vertical: 15, horizontal: 20),
       ),
-      style: GoogleFonts.poppins(color: Colors.black),
-      validator: validator,
+      validator: (value) {
+        if (value == null || value.isEmpty) {
+          return 'Please enter some text';
+        }
+        return null;
+      },
     );
   }
 }

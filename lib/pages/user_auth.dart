@@ -1,15 +1,18 @@
-// ignore_for_file: depend_on_referenced_packages, library_private_types_in_public_api, use_build_context_synchronously
-
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:tabby/pages/data_base_helper.dart';
-import 'package:firebase_auth/firebase_auth.dart'; // Firebase Auth for online mode
-import 'package:connectivity_plus/connectivity_plus.dart'; // To check online/offline status
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
 
 class AuthenticationScreen extends StatefulWidget {
   final String role;
+  final bool isSignUp;
 
-  const AuthenticationScreen({super.key, required this.role});
+  const AuthenticationScreen({
+    super.key,
+    required this.role,
+    required this.isSignUp,
+  });
 
   @override
   _AuthenticationScreenState createState() => _AuthenticationScreenState();
@@ -20,7 +23,7 @@ class _AuthenticationScreenState extends State<AuthenticationScreen> {
   final TextEditingController _usernameController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   bool _passwordVisible = false;
-  bool _isOnline = true; // Store connectivity status
+  bool _isOnline = true;
   bool _checkingConnection = false;
 
   @override
@@ -29,7 +32,6 @@ class _AuthenticationScreenState extends State<AuthenticationScreen> {
     _checkConnectivity();
   }
 
-  // Function to continuously check internet connectivity
   void _checkConnectivity() async {
     setState(() {
       _checkingConnection = true;
@@ -47,22 +49,43 @@ class _AuthenticationScreenState extends State<AuthenticationScreen> {
       String username = _usernameController.text;
       String password = _passwordController.text;
 
-      if (_isOnline) {
-        await _loginOnline(username, password);
+      if (widget.isSignUp) {
+        await _signUp(username, password);
       } else {
-        await _loginOffline(username, password);
+        if (_isOnline) {
+          await _loginOnline(username, password);
+        } else {
+          await _loginOffline(username, password);
+        }
       }
     }
   }
 
-  // Firebase authentication for online mode
+  Future<void> _signUp(String username, String password) async {
+    try {
+      UserCredential userCredential = await FirebaseAuth.instance
+          .createUserWithEmailAndPassword(email: username, password: password);
+
+      if (userCredential.user != null) {
+        Navigator.pushReplacementNamed(context, '/dashBoard');
+      }
+    } on FirebaseAuthException catch (e) {
+      String errorMessage;
+      if (e.code == 'email-already-in-use') {
+        errorMessage = 'The email address is already in use.';
+      } else {
+        errorMessage = 'An error occurred during sign-up. Please try again.';
+      }
+      _showErrorDialog(errorMessage);
+    }
+  }
+
   Future<void> _loginOnline(String username, String password) async {
     try {
       UserCredential userCredential = await FirebaseAuth.instance
           .signInWithEmailAndPassword(email: username, password: password);
 
       if (userCredential.user != null) {
-        // Navigate to dashboard on successful login
         Navigator.pushReplacementNamed(context, '/dashBoard');
       }
     } on FirebaseAuthException catch (e) {
@@ -75,19 +98,15 @@ class _AuthenticationScreenState extends State<AuthenticationScreen> {
         errorMessage = 'An error occurred. Please try again.';
       }
       _showErrorDialog(errorMessage);
-    } catch (e) {
-      _showErrorDialog('An error occurred. Please try again.');
     }
   }
 
-  // Custom authentication for offline mode (using local database)
   Future<void> _loginOffline(String username, String password) async {
     try {
       DatabaseHelper dbHelper = DatabaseHelper.instance;
       bool isLoggedIn = await dbHelper.loginAdmin(username, password);
 
       if (isLoggedIn) {
-        // Navigate to dashboard on successful offline login
         Navigator.pushReplacementNamed(context, '/dashBoard');
       } else {
         _showErrorDialog('Invalid username or password (offline mode).');
@@ -102,7 +121,7 @@ class _AuthenticationScreenState extends State<AuthenticationScreen> {
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: const Text('Login Failed'),
+          title: const Text('Error'),
           content: Text(message),
           actions: [
             TextButton(
@@ -121,120 +140,210 @@ class _AuthenticationScreenState extends State<AuthenticationScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFF6A5AE0),
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: Container(
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(15),
-            ),
-            child: Form(
-              key: _formKey,
+      body: SingleChildScrollView(
+        child: Column(
+          children: [
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(20.0),
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.only(
+                  bottomLeft: Radius.circular(30),
+                  bottomRight: Radius.circular(30),
+                ),
+              ),
               child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  const SizedBox(height: 40),
+                  Row(
+                    children: [
+                      GestureDetector(
+                        onTap: () {
+                          Navigator.pop(context);
+                        },
+                        child: ColorFiltered(
+                          colorFilter: const ColorFilter.mode(
+                            Color(0xFF6A5AE0), // Arrow color
+                            BlendMode.srcIn,
+                          ),
+                          child: Image.asset(
+                            'assets/images/Back_Arrow.png',
+                            width: 30,
+                            height: 30,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          'Welcome ${widget.role}!',
+                          style: GoogleFonts.poppins(
+                            color: const Color(0xFF6A5AE0),
+                            fontSize: 28,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
                   Text(
-                    '${widget.role} Login',
+                    'Please log in to access your account.',
                     style: GoogleFonts.poppins(
-                      fontWeight: FontWeight.w500,
-                      fontSize: 24,
-                      color: const Color(0xFF482970),
+                      color: Colors.black,
+                      fontSize: 16,
                     ),
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 50),
                   if (_checkingConnection)
-                    const CircularProgressIndicator() // Show while checking connection
+                    const Center(child: CircularProgressIndicator())
                   else
                     Text(
-                      _isOnline ? 'You are online' : 'You are offline',
+                      _isOnline
+                          ? 'Connected to the Internet'
+                          : 'You are using Tabby Offline Mode',
                       style: TextStyle(
                         color: _isOnline ? Colors.green : Colors.red,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
-                  const SizedBox(height: 16),
-                  _buildTextFormField(
-                    controller: _usernameController,
-                    label: '${widget.role} Username',
-                    validator: (value) => value == null || value.isEmpty
-                        ? 'Please enter username'
-                        : null,
-                  ),
-                  const SizedBox(height: 16),
-                  _buildTextFormField(
-                    controller: _passwordController,
-                    label: 'Password',
-                    obscureText: !_passwordVisible,
-                    validator: (value) => value == null || value.isEmpty
-                        ? 'Please enter password'
-                        : null,
-                    toggleVisibility: () {
-                      setState(() {
-                        _passwordVisible = !_passwordVisible;
-                      });
-                    },
-                  ),
-                  const SizedBox(height: 24),
-                  Center(
-                    child: ElevatedButton(
-                      onPressed: _submitForm,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF6A5AE0),
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 24, vertical: 12),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
+                  const SizedBox(height: 20),
+                  Form(
+                    key: _formKey,
+                    child: Column(
+                      children: [
+                        // Username Input Field
+                        _buildTextField(
+                          '${widget.role} Username or Email',
+                          icon: Icons.person_outline,
+                          controller: _usernameController,
                         ),
-                      ),
-                      child: Text(
-                        'Login as ${widget.role}',
-                        style: GoogleFonts.poppins(
-                          fontWeight: FontWeight.w500,
-                          fontSize: 16,
-                          color: Colors.white,
+                        const SizedBox(height: 20),
+
+                        // Password Input Field
+                        _buildTextField(
+                          'Password',
+                          icon: Icons.lock_outline,
+                          controller: _passwordController,
+                          isPassword: true,
                         ),
-                      ),
+                        const SizedBox(height: 40),
+
+                        // Submit Button
+                        Center(
+                          child: ElevatedButton(
+                            onPressed: _submitForm,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor:
+                                  const Color.fromARGB(255, 121, 100, 216),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 40, vertical: 15),
+                            ),
+                            child: Text(
+                              widget.isSignUp ? 'Sign Up' : 'Log In',
+                              style: GoogleFonts.poppins(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w600,
+                                color: const Color.fromARGB(255, 255, 255, 255),
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        Center(
+                          child: Column(
+                            children: [
+                              const Divider(
+                                color: Color(0xFF6A5AE0),
+                                thickness: 1,
+                                indent: 50,
+                                endIndent: 50,
+                              ),
+                              const SizedBox(height: 10),
+                              Text(
+                                'Or Login Using',
+                                style: GoogleFonts.poppins(
+                                  color: const Color(0xFF6A5AE0),
+                                  fontSize: 16,
+                                ),
+                              ),
+                              const SizedBox(height: 10),
+                              GestureDetector(
+                                onTap: () {
+                                  // Implement Google Sign-In logic here
+                                },
+                                child: Image.asset(
+                                  'assets/images/Google_Icon.png',
+                                  width: 40,
+                                  height: 40,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ],
               ),
             ),
-          ),
+          ],
         ),
       ),
     );
   }
 
-  Widget _buildTextFormField({
+  Widget _buildTextField(
+    String hintText, {
+    required IconData icon,
     required TextEditingController controller,
-    required String label,
-    bool obscureText = false,
-    required FormFieldValidator<String> validator,
-    VoidCallback? toggleVisibility,
+    bool isPassword = false,
   }) {
     return TextFormField(
       controller: controller,
-      obscureText: obscureText,
+      obscureText: isPassword && !_passwordVisible,
       decoration: InputDecoration(
-        labelText: label,
-        labelStyle: GoogleFonts.poppins(color: Colors.black),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
+        filled: true,
+        fillColor: Colors.grey[200],
+        hintText: hintText,
+        hintStyle: GoogleFonts.poppins(
+          color: Colors.black.withOpacity(0.7),
         ),
-        suffixIcon: toggleVisibility != null
+        prefixIcon: Icon(
+          icon,
+          color: Colors.black,
+        ),
+        suffixIcon: isPassword
             ? IconButton(
                 icon: Icon(
-                  obscureText ? Icons.visibility : Icons.visibility_off,
+                  _passwordVisible ? Icons.visibility : Icons.visibility_off,
+                  color: Colors.black,
                 ),
-                onPressed: toggleVisibility,
+                onPressed: () {
+                  setState(() {
+                    _passwordVisible = !_passwordVisible;
+                  });
+                },
               )
             : null,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide.none,
+        ),
+        contentPadding:
+            const EdgeInsets.symmetric(vertical: 15, horizontal: 20),
       ),
-      style: GoogleFonts.poppins(color: Colors.black),
-      validator: validator,
+      validator: (value) {
+        if (value == null || value.isEmpty) {
+          return 'Please enter some text';
+        }
+        return null;
+      },
     );
   }
 }

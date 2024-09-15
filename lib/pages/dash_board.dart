@@ -30,7 +30,7 @@ class _DashBoardState extends State<DashBoard> {
 
   @override
   void dispose() {
-    _bannerTimer?.cancel(); // Cancel timer when widget is disposed
+    _bannerTimer?.cancel();
     super.dispose();
   }
 
@@ -42,11 +42,11 @@ class _DashBoardState extends State<DashBoard> {
         });
       }
       if (!_isOffline) {
-        _bannerTimer?.cancel(); // Cancel any existing timer
+        _bannerTimer?.cancel();
         _bannerTimer = Timer(const Duration(seconds: 10), () {
           if (mounted) {
             setState(() {
-              _isOffline = false; // Hide the banner after 10 seconds
+              _isOffline = false;
             });
           }
         });
@@ -69,8 +69,8 @@ class _DashBoardState extends State<DashBoard> {
                 padding: const EdgeInsets.all(8),
                 child: Text(
                   _isOffline
-                      ? "Tabby is in Offline Mode"
-                      : "Connected to the Internet",
+                      ? "Tabby is currently in Offline Mode."
+                      : "Tabby’s Got Internet!",
                   textAlign: TextAlign.center,
                   style: GoogleFonts.getFont(
                     'Poppins',
