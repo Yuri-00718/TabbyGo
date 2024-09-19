@@ -3,10 +3,13 @@ import 'package:flutter/material.dart';
 // ignore: depend_on_referenced_packages
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:tabby/pages/data_base_helper.dart';
-import 'package:tabby/pages/template_creation.dart';
+import 'package:tabby/pages/Backend/data_base_helper.dart';
+import 'package:tabby/pages/Organizer_module/template_creation.dart';
 // ignore: depend_on_referenced_packages
 import 'package:cloud_firestore/cloud_firestore.dart';
+// ignore: depend_on_referenced_packages
+import 'package:mailer/mailer.dart';
+import 'package:mailer/smtp_server.dart';
 
 class TemplateMenus extends StatefulWidget {
   const TemplateMenus({super.key});
@@ -22,7 +25,7 @@ class _TemplateMenusState extends State<TemplateMenus> {
   @override
   void initState() {
     super.initState();
-    _loadTemplates(); // Load templates when the widget initializes
+    _loadTemplates();
   }
 
   Future<void> _loadTemplates() async {
@@ -213,10 +216,69 @@ class _TemplateMenusState extends State<TemplateMenus> {
     if (confirm == true) {
       try {
         await DatabaseHelper.instance.deleteTemplate(id);
-        _loadTemplates(); // Reload templates after deletion
+        _loadTemplates();
       } catch (e) {
         _handleError('Error deleting template', e);
       }
+    }
+  }
+
+  Future<void> _sendTemplateCodeToJudges(
+      BuildContext context, String templateCode) async {
+    try {
+      // Retrieve judge emails from the local database
+      final judgeEmails = await DatabaseHelper.instance
+          .getJudgeEmailsFromTemplate(templateCode);
+
+      if (judgeEmails.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('No judge emails found for the template.'),
+          ),
+        );
+        return;
+      }
+
+      // Define the SMTP server
+      final smtpServer = SmtpServer(
+        'smtp.gmail.com',
+        username: 'Lloydeast1@gmail.com',
+        password: 'kgou urak cemu wetz',
+        ssl: true,
+        port: 465,
+        ignoreBadCertificate: true,
+      );
+
+      // Create the message
+      final message = Message()
+        ..from = const Address('Lloydeast1@gmail.com', 'Tabby Go!')
+        ..recipients.addAll(judgeEmails)
+        ..subject = 'Template Code for Event is $templateCode'
+        ..text =
+            'Hello Judge!,\n\nHere is the template code you requested: $templateCode';
+
+      // Send the email
+      final sendReport = await send(message, smtpServer);
+
+      if (kDebugMode) {
+        print('Email sent: ${sendReport.toString()}');
+      }
+
+      // ignore: use_build_context_synchronously
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Template code sent to judges successfully.'),
+        ),
+      );
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error sending email: $e');
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error sending email: $e'),
+        ),
+      );
     }
   }
 
@@ -440,9 +502,13 @@ class _TemplateMenusState extends State<TemplateMenus> {
                   value: 'Delete',
                   child: Text('Delete'),
                 ),
+                const PopupMenuItem<String>(
+                  value: 'Send Code',
+                  child: Text('Send Code'),
+                ),
               ];
             },
-            onSelected: (value) {
+            onSelected: (value) async {
               switch (value) {
                 case 'Edit':
                   _editTemplate(template);
@@ -450,9 +516,13 @@ class _TemplateMenusState extends State<TemplateMenus> {
                 case 'Delete':
                   _deleteTemplate(template['id']);
                   break;
+                case 'Send Code':
+                  await _sendTemplateCodeToJudges(
+                      context, template['templateCode']);
+                  break;
               }
             },
-          ),
+          )
         ],
       ),
     );

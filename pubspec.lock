@@ -329,7 +329,7 @@ packages:
     source: hosted
     version: "0.12.4+2"
   http:
-    dependency: transitive
+    dependency: "direct dev"
     description:
       name: http
       sha256: b9c29a161230ee03d3ccf545097fccd9b87a5264228c5d348202e0f0c28f9010
@@ -456,6 +456,22 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "4.0.0"
+  logging:
+    dependency: transitive
+    description:
+      name: logging
+      sha256: "623a88c9594aa774443aa3eb2d41807a48486b5613e67599fb4c41c0ad47c340"
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.2.0"
+  mailer:
+    dependency: "direct dev"
+    description:
+      name: mailer
+      sha256: "3b27d204ff92a20aba227c25bc6467e245b0f19f9fbbc83aa357a9b7fa40267f"
+      url: "https://pub.dev"
+    source: hosted
+    version: "6.1.2"
   matcher:
     dependency: transitive
     description:

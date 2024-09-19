@@ -3,9 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 // ignore: depend_on_referenced_packages
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:tabby/pages/user_management.dart';
-import 'package:tabby/pages/result_and_reports_active_events.dart';
-import 'package:tabby/pages/template_menus.dart';
+import 'package:tabby/pages/Organizer_module/user_management.dart';
+import 'package:tabby/pages/Organizer_module/result_and_reports_active_events.dart';
+import 'package:tabby/pages/Organizer_module/template_menus.dart';
 // ignore: depend_on_referenced_packages
 import 'package:connectivity_plus/connectivity_plus.dart';
 // ignore: depend_on_referenced_packages

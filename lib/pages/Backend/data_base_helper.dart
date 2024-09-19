@@ -318,6 +318,42 @@ class DatabaseHelper {
   }
 
 // Judge CRUD methods
+  Future<List<String>> getJudgeEmailsFromTemplate(String templateCode) async {
+    try {
+      // Get the template data from the database
+      final data = await getTemplateByCode(templateCode);
+
+      if (data == null || !data.containsKey('judges')) {
+        throw FormatException('Invalid data format or missing judges');
+      }
+
+      // Check if the judges field is a String, if so decode it
+      final judgesData = data['judges'];
+
+      // Convert it to List<dynamic> if it's a JSON string
+      List<dynamic> judgesList;
+      if (judgesData is String) {
+        judgesList = jsonDecode(judgesData);
+      } else if (judgesData is List<dynamic>) {
+        judgesList = judgesData;
+      } else {
+        throw const FormatException('Unexpected format for judges data');
+      }
+
+      // Extract emails from the judges list
+      return judgesList.map<String>((judge) {
+        if (judge is Map<String, dynamic> && judge.containsKey('email')) {
+          return judge['email'] as String;
+        } else {
+          throw const FormatException('Invalid JSON format for judge email');
+        }
+      }).toList();
+    } catch (e) {
+      // Log the error and handle it appropriately
+      print('Error retrieving judge emails from template: $e');
+      return [];
+    }
+  }
 
   Future<int> insertJudge(Map<String, dynamic> judge) async {
     final db = await database;

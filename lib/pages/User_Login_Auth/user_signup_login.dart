@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:tabby/pages/user_auth.dart'; // Import AuthenticationScreen
-import 'package:tabby/pages/regis_user.dart'; // Import RegistrationScreen
+import 'package:tabby/pages/User_Login_Auth/user_auth.dart'; // Import AuthenticationScreen
+import 'package:tabby/pages/User_Login_Auth/regis_user.dart'; // Import RegistrationScreen
 
 class UserSignUpLoginScreen extends StatelessWidget {
   final String role;

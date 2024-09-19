@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:tabby/pages/user_signup_login.dart'; // Import the new Dart file
+import 'package:tabby/pages/User_Login_Auth/user_signup_login.dart'; // Import the new Dart file
 
 class LoginRoleSelection extends StatelessWidget {
   const LoginRoleSelection({super.key});
