@@ -1,3 +1,5 @@
+// ignore_for_file: depend_on_referenced_packages, use_super_parameters, library_private_types_in_public_api, use_build_context_synchronously
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:tabby/pages/Backend/data_base_helper.dart';
@@ -10,10 +12,10 @@ class AuthenticationScreen extends StatefulWidget {
   final bool isSignUp;
 
   const AuthenticationScreen({
-    super.key,
+    Key? key,
     required this.role,
     required this.isSignUp,
-  });
+  }) : super(key: key);
 
   @override
   _AuthenticationScreenState createState() => _AuthenticationScreenState();
@@ -48,8 +50,8 @@ class _AuthenticationScreenState extends State<AuthenticationScreen> {
 
   Future<void> _submitForm() async {
     if (_formKey.currentState?.validate() ?? false) {
-      String username = _usernameController.text;
-      String password = _passwordController.text;
+      String username = _usernameController.text.trim();
+      String password = _passwordController.text.trim();
 
       if (widget.isSignUp) {
         await _signUp(username, password);
@@ -65,19 +67,27 @@ class _AuthenticationScreenState extends State<AuthenticationScreen> {
 
   Future<void> _signUp(String username, String password) async {
     try {
+      if (username.isEmpty || password.isEmpty) {
+        _showErrorDialog('Username and password cannot be empty.');
+        return;
+      }
+
       UserCredential userCredential = await FirebaseAuth.instance
           .createUserWithEmailAndPassword(email: username, password: password);
 
       if (userCredential.user != null) {
+        await DatabaseHelper.instance.registerAdmin(
+          username,
+          password,
+          userCredential.user!.displayName ?? '',
+          'Judge',
+        );
         Navigator.pushReplacementNamed(context, '/dashBoard');
       }
     } on FirebaseAuthException catch (e) {
-      String errorMessage;
-      if (e.code == 'email-already-in-use') {
-        errorMessage = 'The email address is already in use.';
-      } else {
-        errorMessage = 'An error occurred during sign-up. Please try again.';
-      }
+      String errorMessage = e.code == 'email-already-in-use'
+          ? 'The email address is already in use.'
+          : 'An error occurred during sign-up. Please try again.';
       _showErrorDialog(errorMessage);
     }
   }
@@ -106,34 +116,56 @@ class _AuthenticationScreenState extends State<AuthenticationScreen> {
   Future<void> _loginOffline(String username, String password) async {
     try {
       DatabaseHelper dbHelper = DatabaseHelper.instance;
-      bool isLoggedIn = await dbHelper.loginAdmin(username, password);
 
-      if (isLoggedIn) {
+      if (username.isEmpty || password.isEmpty) {
+        _showErrorDialog('Username and password cannot be empty.');
+        return;
+      }
+
+      bool isAdmin = await dbHelper.loginAdmin(username, password);
+      bool isJudge = await dbHelper.loginJudge(username, password);
+
+      if (isAdmin || isJudge) {
+        if (kDebugMode) {
+          print(isAdmin
+              ? 'Admin login successful in offline mode.'
+              : 'Judge login successful in offline mode.');
+        }
         Navigator.pushReplacementNamed(context, '/dashBoard');
       } else {
+        if (kDebugMode) {
+          print('Invalid credentials for offline login.');
+        }
         _showErrorDialog('Invalid username or password (offline mode).');
       }
     } catch (e) {
-      _showErrorDialog('An error occurred during offline login.');
+      if (kDebugMode) {
+        print('Error during offline login: $e');
+      }
+      _showErrorDialog(
+          'An error occurred during offline login: ${e.toString()}');
     }
   }
 
   Future<void> _signInWithGoogle() async {
     try {
       final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
-      final GoogleSignInAuthentication googleAuth =
-          await googleUser!.authentication;
 
-      final credential = GoogleAuthProvider.credential(
-        accessToken: googleAuth.accessToken,
-        idToken: googleAuth.idToken,
-      );
+      if (googleUser != null) {
+        final GoogleSignInAuthentication googleAuth =
+            await googleUser.authentication;
 
-      await FirebaseAuth.instance.signInWithCredential(credential);
+        final credential = GoogleAuthProvider.credential(
+          accessToken: googleAuth.accessToken,
+          idToken: googleAuth.idToken,
+        );
 
-      Navigator.pushReplacementNamed(context, '/dashBoard');
+        await FirebaseAuth.instance.signInWithCredential(credential);
+        Navigator.pushReplacementNamed(context, '/dashBoard');
+      } else {
+        _showErrorDialog('Google Sign-In was unsuccessful. Please try again.');
+      }
     } catch (e) {
-      print('Error during Google Sign-In: $e');
       _showErrorDialog(
           'An error occurred during Google Sign-In. Please try again.');
     }
@@ -237,15 +269,12 @@ class _AuthenticationScreenState extends State<AuthenticationScreen> {
                     key: _formKey,
                     child: Column(
                       children: [
-                        // Username Input Field
                         _buildTextField(
                           '${widget.role} Username or Email',
                           icon: Icons.person_outline,
                           controller: _usernameController,
                         ),
                         const SizedBox(height: 20),
-
-                        // Password Input Field
                         _buildTextField(
                           'Password',
                           icon: Icons.lock_outline,
@@ -253,8 +282,6 @@ class _AuthenticationScreenState extends State<AuthenticationScreen> {
                           isPassword: true,
                         ),
                         const SizedBox(height: 40),
-
-                        // Submit Button
                         Center(
                           child: ElevatedButton(
                             onPressed: _submitForm,
@@ -272,7 +299,7 @@ class _AuthenticationScreenState extends State<AuthenticationScreen> {
                               style: GoogleFonts.poppins(
                                 fontSize: 18,
                                 fontWeight: FontWeight.w600,
-                                color: const Color.fromARGB(255, 255, 255, 255),
+                                color: Colors.white,
                               ),
                             ),
                           ),
@@ -298,10 +325,38 @@ class _AuthenticationScreenState extends State<AuthenticationScreen> {
                               const SizedBox(height: 10),
                               GestureDetector(
                                 onTap: _signInWithGoogle,
-                                child: Image.asset(
-                                  'assets/images/Google_Icon.png',
-                                  width: 40,
-                                  height: 40,
+                                child: Container(
+                                  padding: const EdgeInsets.all(10),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(30),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.grey.withOpacity(0.5),
+                                        spreadRadius: 5,
+                                        blurRadius: 7,
+                                        offset: const Offset(0, 3),
+                                      ),
+                                    ],
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Image.asset(
+                                        'assets/images/Google_Icon.png',
+                                        height: 30,
+                                        width: 30,
+                                      ),
+                                      const SizedBox(width: 10),
+                                      Text(
+                                        'Google',
+                                        style: GoogleFonts.poppins(
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                                 ),
                               ),
                             ],
@@ -319,24 +374,20 @@ class _AuthenticationScreenState extends State<AuthenticationScreen> {
     );
   }
 
-  Widget _buildTextField(
-    String labelText, {
-    required IconData icon,
-    required TextEditingController controller,
-    bool isPassword = false,
-  }) {
+  Widget _buildTextField(String label,
+      {required TextEditingController controller,
+      IconData? icon,
+      bool isPassword = false}) {
     return TextFormField(
       controller: controller,
       obscureText: isPassword && !_passwordVisible,
       decoration: InputDecoration(
-        prefixIcon: Icon(icon, color: Colors.black),
-        labelText: labelText,
+        labelText: label,
+        prefixIcon: icon != null ? Icon(icon) : null,
         suffixIcon: isPassword
             ? IconButton(
                 icon: Icon(
-                  _passwordVisible ? Icons.visibility : Icons.visibility_off,
-                  color: Colors.black,
-                ),
+                    _passwordVisible ? Icons.visibility : Icons.visibility_off),
                 onPressed: () {
                   setState(() {
                     _passwordVisible = !_passwordVisible;
@@ -350,7 +401,7 @@ class _AuthenticationScreenState extends State<AuthenticationScreen> {
       ),
       validator: (value) {
         if (value == null || value.isEmpty) {
-          return 'This field cannot be empty';
+          return 'Please enter $label';
         }
         return null;
       },

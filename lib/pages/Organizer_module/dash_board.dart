@@ -1,11 +1,13 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 // ignore: depend_on_referenced_packages
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:tabby/pages/Organizer_module/user_management.dart';
-import 'package:tabby/pages/Organizer_module/result_and_reports_active_events.dart';
-import 'package:tabby/pages/Organizer_module/template_menus.dart';
+import 'package:tabby/pages/Organizer_Module/Chat_Module.dart';
+import 'package:tabby/pages/Organizer_Module/user_management.dart';
+import 'package:tabby/pages/Organizer_Module/result_and_reports_active_events.dart';
+import 'package:tabby/pages/Organizer_Module/template_menus.dart';
 // ignore: depend_on_referenced_packages
 import 'package:connectivity_plus/connectivity_plus.dart';
 // ignore: depend_on_referenced_packages
@@ -17,6 +19,7 @@ class DashBoard extends StatefulWidget {
   const DashBoard({super.key});
 
   @override
+  // ignore: library_private_types_in_public_api
   _DashBoardState createState() => _DashBoardState();
 }
 
@@ -61,9 +64,12 @@ class _DashBoardState extends State<DashBoard> {
     try {
       await _googleSignIn.signOut();
       await FirebaseAuth.instance.signOut();
+      // ignore: use_build_context_synchronously
       Navigator.of(context).pushReplacementNamed('/role');
     } catch (e) {
-      print("Error signing out: $e");
+      if (kDebugMode) {
+        print("Error signing out: $e");
+      }
     }
   }
 
@@ -143,10 +149,18 @@ class _DashBoardState extends State<DashBoard> {
                     ),
                     _buildActionContainer(
                       context,
-                      'Criteria \n Management',
+                      'Communicate with\n Judges',
                       'assets/images/law_studies_with_contract_and_gavel.png',
-                      () {},
-                    ),
+                      () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => const ChatScreen(
+                                chatId: 'chat_id_between_admin_and_judge'),
+                          ),
+                        );
+                      },
+                    )
                   ],
                 ),
               ),

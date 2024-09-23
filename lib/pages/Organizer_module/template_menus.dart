@@ -1,13 +1,11 @@
+// ignore_for_file: depend_on_referenced_packages, use_build_context_synchronously
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-// ignore: depend_on_referenced_packages
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:tabby/pages/Backend/data_base_helper.dart';
-import 'package:tabby/pages/Organizer_module/template_creation.dart';
-// ignore: depend_on_referenced_packages
+import 'package:tabby/pages/Organizer_Module/template_creation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-// ignore: depend_on_referenced_packages
 import 'package:mailer/mailer.dart';
 import 'package:mailer/smtp_server.dart';
 
@@ -172,13 +170,14 @@ class _TemplateMenusState extends State<TemplateMenus> {
       await _loadTemplates();
 
       // Notify user of successful sync
-      // ignore: use_build_context_synchronously
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Templates synchronized successfully!')),
       );
     } catch (e) {
       _handleError('Error syncing templates', e);
-      print('Sync error: $e');
+      if (kDebugMode) {
+        print('Sync error: $e');
+      }
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error syncing template: $e')),
       );
@@ -264,7 +263,6 @@ class _TemplateMenusState extends State<TemplateMenus> {
         print('Email sent: ${sendReport.toString()}');
       }
 
-      // ignore: use_build_context_synchronously
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Template code sent to judges successfully.'),

@@ -3,7 +3,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:tabby/pages/Organizer_module/result.dart';
+import 'package:tabby/pages/Organizer_Module/result.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:tabby/pages/Backend/data_base_helper.dart';
 

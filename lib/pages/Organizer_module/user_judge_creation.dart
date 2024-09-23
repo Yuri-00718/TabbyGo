@@ -110,22 +110,28 @@ class _JudgeCreationState extends State<JudgeCreation> {
 
       try {
         final dbHelper = DatabaseHelper.instance;
+
+        // Save judge data locally
         if (widget.judge.isEmpty) {
           await dbHelper.insertJudge(judgeData);
         } else {
           await dbHelper.updateJudge(widget.judge['id'], judgeData);
         }
 
-        // ignore: use_build_context_synchronously
+        if (!mounted) return; // Check if widget is still in the tree
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-              content: Text(widget.judge.isEmpty
-                  ? 'Judge created successfully'
-                  : 'Judge updated successfully')),
+            content: Text(widget.judge.isEmpty
+                ? 'Judge created successfully'
+                : 'Judge updated successfully'),
+          ),
         );
 
-        // ignore: use_build_context_synchronously
+        // Navigate back
         Navigator.pop(context);
+
+        // After navigation, clear the form
         _formKey.currentState?.reset();
         setState(() {
           _imageFile = null;
@@ -136,7 +142,9 @@ class _JudgeCreationState extends State<JudgeCreation> {
         if (kDebugMode) {
           print('Error saving judge: $e');
         }
-        // ignore: use_build_context_synchronously
+
+        if (!mounted) return; // Check if widget is still in the tree
+
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Error saving judge')),
         );

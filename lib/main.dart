@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 // ignore: depend_on_referenced_packages
 import 'package:firebase_core/firebase_core.dart'; // Import Firebase core package
-import 'package:tabby/pages/Organizer_module/dash_board.dart';
-import 'package:tabby/pages/Organizer_module/user_management.dart';
-import 'package:tabby/pages/Organizer_module/result.dart';
-import 'package:tabby/pages/Organizer_module/result_and_reports_active_events.dart';
-import 'package:tabby/pages/Organizer_module/template_creation.dart';
-import 'package:tabby/pages/Organizer_module/template_menus.dart';
+import 'package:tabby/pages/Organizer_Module/dash_board.dart';
+import 'package:tabby/pages/Organizer_Module/user_management.dart';
+import 'package:tabby/pages/Organizer_Module/result.dart';
+import 'package:tabby/pages/Organizer_Module/result_and_reports_active_events.dart';
+import 'package:tabby/pages/Organizer_Module/template_creation.dart';
+import 'package:tabby/pages/Organizer_Module/template_menus.dart';
 import 'package:tabby/pages/User_Login_Auth/login_role.dart';
 
 // Main function with Firebase initialization

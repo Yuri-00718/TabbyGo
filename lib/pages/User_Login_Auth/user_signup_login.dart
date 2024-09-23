@@ -169,7 +169,7 @@ class UserSignUpLoginScreen extends StatelessWidget {
                               // Handle Google login logic
                             },
                             child: Image.asset(
-                              'assets/images/Google_Icon.png', // Replace with your Google icon path
+                              'assets/images/Google_Icon.png',
                               width: 40,
                               height: 40,
                             ),

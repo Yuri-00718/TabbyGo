@@ -324,7 +324,7 @@ class DatabaseHelper {
       final data = await getTemplateByCode(templateCode);
 
       if (data == null || !data.containsKey('judges')) {
-        throw FormatException('Invalid data format or missing judges');
+        throw const FormatException('Invalid data format or missing judges');
       }
 
       // Check if the judges field is a String, if so decode it
@@ -350,7 +350,9 @@ class DatabaseHelper {
       }).toList();
     } catch (e) {
       // Log the error and handle it appropriately
-      print('Error retrieving judge emails from template: $e');
+      if (kDebugMode) {
+        print('Error retrieving judge emails from template: $e');
+      }
       return [];
     }
   }
@@ -591,7 +593,6 @@ class DatabaseHelper {
   }
 
   // Custom admin authentication methods for offline use
-
   Future<void> registerAdmin(
       String username, String password, String name, String role) async {
     String hashedPassword = _hashPassword(password);
@@ -607,6 +608,7 @@ class DatabaseHelper {
     );
   }
 
+// Method to login Admin in offline mode
   Future<bool> loginAdmin(String username, String password) async {
     String hashedPassword = _hashPassword(password);
     final db = await database;
@@ -616,6 +618,40 @@ class DatabaseHelper {
       whereArgs: [username, hashedPassword],
     );
     return result.isNotEmpty;
+  }
+
+// Custom judge registration method for offline use
+  Future<void> registerJudge(String username, String password, String name,
+      String role, String template, String? image) async {
+    String hashedPassword = _hashPassword(password);
+    await _database!.insert(
+      'judges',
+      {
+        'username': username,
+        'password': hashedPassword,
+        'name': name,
+        'role': role,
+        'template': template,
+        'image': image,
+      },
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+
+// Method to login Judge in offline mode
+  Future<bool> loginJudge(String username, String password) async {
+    final db = await instance.database;
+    final result = await db.query(
+      'judges',
+      where: 'username = ?',
+      whereArgs: [username],
+    );
+    if (result.isNotEmpty) {
+      // Assuming the password is stored as plaintext; otherwise, use proper hash comparison.
+      final judge = result.first;
+      return judge['password'] == password;
+    }
+    return false;
   }
 
   // Method to hash the password using SHA-256
@@ -707,6 +743,26 @@ class DatabaseHelper {
   }
 
   // Firestore CRUD operations for templates
+
+  //chats method
+  Future<void> addMessage(
+      String chatId, Map<String, dynamic> messageData) async {
+    await FirebaseFirestore.instance
+        .collection('chats')
+        .doc(chatId)
+        .collection('messages')
+        .add(messageData);
+  }
+
+  Stream<QuerySnapshot> getMessages(String chatId) {
+    return FirebaseFirestore.instance
+        .collection('chats')
+        .doc(chatId)
+        .collection('messages')
+        .orderBy('timestamp')
+        .snapshots();
+  }
+
   Future<void> insertTemplateFirestore(
       String id, Map<String, dynamic> template) async {
     try {

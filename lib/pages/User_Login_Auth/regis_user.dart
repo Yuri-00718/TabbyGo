@@ -4,6 +4,8 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 // ignore: depend_on_referenced_packages
 import 'package:connectivity_plus/connectivity_plus.dart';
+// ignore: depend_on_referenced_packages
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class RegistrationScreen extends StatefulWidget {
   final String role;
@@ -46,14 +48,37 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       final password = _passwordController.text;
 
       try {
-        await FirebaseAuth.instance.createUserWithEmailAndPassword(
+        UserCredential userCredential =
+            await FirebaseAuth.instance.createUserWithEmailAndPassword(
           email: email,
           password: password,
         );
+        User? user = userCredential.user;
+        await _saveUserData(user);
+
+        // Navigate to the dashboard
         // ignore: use_build_context_synchronously
         Navigator.pushReplacementNamed(context, '/dashBoard');
       } catch (e) {
         _showErrorDialog(e.toString());
+      }
+    }
+  }
+
+  Future<void> _saveUserData(User? user) async {
+    if (user != null) {
+      try {
+        String defaultUsername = user.email!.split('@')[0];
+
+        // Save user data in Firestore
+        await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
+          'uid': user.uid,
+          'email': user.email,
+          'role': widget.role,
+          'username': defaultUsername,
+        });
+      } catch (e) {
+        _showErrorDialog("Failed to save user data: $e");
       }
     }
   }

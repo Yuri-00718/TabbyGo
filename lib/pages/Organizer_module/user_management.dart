@@ -1,12 +1,11 @@
+// ignore_for_file: depend_on_referenced_packages, library_private_types_in_public_api
 import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:tabby/pages/Backend/data_base_helper.dart';
-import 'package:tabby/pages/Organizer_module/user_admin_creation.dart';
-import 'package:tabby/pages/Organizer_module/user_judge_creation.dart';
-// ignore: depend_on_referenced_packages
+import 'package:tabby/pages/Organizer_Module/user_admin_creation.dart';
+import 'package:tabby/pages/Organizer_Module/user_judge_creation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class UserManagement extends StatefulWidget {
