@@ -1,15 +1,15 @@
-// ignore_for_file: library_private_types_in_public_api
+// ignore_for_file: library_private_types_in_public_api, depend_on_referenced_packages
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-// ignore: depend_on_referenced_packages
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:tabby/pages/Backend/data_base_helper.dart';
+import 'package:file_picker/file_picker.dart';
 
 class TemplateCreation extends StatefulWidget {
   final Map<String, dynamic>? template;
@@ -26,7 +26,10 @@ class _TemplateCreationState extends State<TemplateCreation> {
       TextEditingController();
   final TextEditingController _dateController = TextEditingController();
   final TextEditingController _maxWeightageController = TextEditingController();
+  final TextEditingController _eventMechanicsController =
+      TextEditingController();
 
+  List<String?> _uploadedFiles = [];
   int _currentStep = 1;
   bool _isTemplateGenerated = false;
   bool _isEditingWeightage = false;
@@ -55,15 +58,21 @@ class _TemplateCreationState extends State<TemplateCreation> {
       'Name': TextEditingController(),
       'Number': TextEditingController(),
       'TeamName': TextEditingController(),
-      'Photo': null, // Use null or empty string for no photo
+      'Photo': null,
+    }
+  ];
+
+  final List<Map<String, dynamic>> _eventMechanics = [
+    {
+      'description': TextEditingController(),
+      'files': <String>[],
     }
   ];
 
   @override
   void initState() {
     super.initState();
-    _maxWeightageController.text =
-        '100'; // Default value or your specific logic
+    _maxWeightageController.text = '100';
 
     if (widget.template != null) {
       _eventNameController.text = widget.template!['eventName'] ?? '';
@@ -80,6 +89,7 @@ class _TemplateCreationState extends State<TemplateCreation> {
       _judges.clear();
       _participant.clear();
       _criteria.clear();
+      _eventMechanics.clear();
 
       _loadTemplateData();
     } else {
@@ -88,13 +98,15 @@ class _TemplateCreationState extends State<TemplateCreation> {
   }
 
   void _loadTemplateData() {
+    _loadJudges();
+    _loadParticipants();
+    _loadCriteria();
+    _loadEventMechanics();
+  }
+
+  void _loadJudges() {
     if (widget.template!['judges'] != null) {
-      List<dynamic> judges;
-      if (widget.template!['judges'] is String) {
-        judges = jsonDecode(widget.template!['judges'] as String);
-      } else {
-        judges = widget.template!['judges'] as List<dynamic>;
-      }
+      List<dynamic> judges = _getListFromTemplate('judges');
 
       for (var judge in judges) {
         _judges.add({
@@ -107,34 +119,28 @@ class _TemplateCreationState extends State<TemplateCreation> {
     } else {
       _addJudge();
     }
+  }
 
+  void _loadParticipants() {
     if (widget.template!['participant'] != null) {
-      List<dynamic> participants;
-      if (widget.template!['participant'] is String) {
-        participants = jsonDecode(widget.template!['participant'] as String);
-      } else {
-        participants = widget.template!['participant'] as List<dynamic>;
-      }
+      List<dynamic> participants = _getListFromTemplate('participant');
 
       for (var participant in participants) {
         _participant.add({
           'Name': TextEditingController(text: participant['Name']),
           'Number': TextEditingController(text: participant['Number']),
           'TeamName': TextEditingController(text: participant['TeamName']),
-          'Photo': participant['Photo'] ?? '', // Handle missing or null photo
+          'Photo': participant['Photo'] ?? '',
         });
       }
     } else {
       _addparticipant();
     }
+  }
 
+  void _loadCriteria() {
     if (widget.template!['criteria'] != null) {
-      List<dynamic> criteria;
-      if (widget.template!['criteria'] is String) {
-        criteria = jsonDecode(widget.template!['criteria'] as String);
-      } else {
-        criteria = widget.template!['criteria'] as List<dynamic>;
-      }
+      List<dynamic> criteria = _getListFromTemplate('criteria');
 
       for (var criterion in criteria) {
         _criteria.add({
@@ -147,6 +153,34 @@ class _TemplateCreationState extends State<TemplateCreation> {
     }
   }
 
+  void _loadEventMechanics() {
+    if (widget.template!['eventMechanics'] != null) {
+      List<dynamic> mechanics = _getListFromTemplate('eventMechanics');
+
+      for (var mechanic in mechanics) {
+        // Assuming you have a TextEditingController for event mechanics description
+        _eventMechanics.add({
+          'description':
+              TextEditingController(text: mechanic['description'] ?? ''),
+          'files': mechanic['files'] != null
+              ? List<String>.from(mechanic['files'])
+              : <String>[],
+        });
+      }
+    } else {
+      _addEventMechanic();
+    }
+  }
+
+  List<dynamic> _getListFromTemplate(String key) {
+    var value = widget.template![key];
+    if (value is String) {
+      return jsonDecode(value) as List<dynamic>;
+    } else {
+      return value as List<dynamic>;
+    }
+  }
+
   @override
   void dispose() {
     _eventNameController.dispose();
@@ -154,6 +188,7 @@ class _TemplateCreationState extends State<TemplateCreation> {
     _dateController.dispose();
     _maxWeightageController.dispose();
 
+    // Dispose controllers for judges, participants, criteria, and event mechanics
     for (var judge in _judges) {
       judge['name']?.dispose();
       judge['role']?.dispose();
@@ -170,6 +205,10 @@ class _TemplateCreationState extends State<TemplateCreation> {
     for (var criterion in _criteria) {
       criterion['Description']?.dispose();
       criterion['Weightage']?.dispose();
+    }
+
+    for (var mechanic in _eventMechanics) {
+      mechanic['description']?.dispose();
     }
 
     super.dispose();
@@ -192,7 +231,7 @@ class _TemplateCreationState extends State<TemplateCreation> {
 
   void _nextStep() {
     setState(() {
-      if (_currentStep < 5) {
+      if (_currentStep < 6) {
         _currentStep++;
       }
     });
@@ -246,6 +285,15 @@ class _TemplateCreationState extends State<TemplateCreation> {
     _calculateTotalWeightage();
   }
 
+  void _addEventMechanic() {
+    setState(() {
+      _eventMechanics.add({
+        'description': TextEditingController(),
+        'files': <String>[],
+      });
+    });
+  }
+
   void _calculateTotalWeightage() {
     int total = _criteria.fold<int>(
       0,
@@ -272,8 +320,7 @@ class _TemplateCreationState extends State<TemplateCreation> {
 
     if (image != null) {
       setState(() {
-        _participant[index]['Photo'] =
-            image.path; // Save the image path instead of Base64 string
+        _participant[index]['Photo'] = image.path;
       });
     }
   }
@@ -285,6 +332,7 @@ class _TemplateCreationState extends State<TemplateCreation> {
     String eventLocation = _eventLocationController.text;
     String eventDate = _dateController.text;
 
+    // Convert judge details to list of maps
     List<Map<String, dynamic>> judges = _judges.map((judge) {
       return {
         'name': judge['name']?.text ?? '',
@@ -294,15 +342,17 @@ class _TemplateCreationState extends State<TemplateCreation> {
       };
     }).toList();
 
+    // Convert participant details to list of maps
     List<Map<String, dynamic>> participants = _participant.map((participant) {
       return {
         'Name': participant['Name']?.text ?? '',
         'Number': participant['Number']?.text ?? '',
         'TeamName': participant['TeamName']?.text ?? '',
-        'Photo': participant['Photo'] ?? '', // Save the path or empty string
+        'Photo': participant['Photo'] ?? '',
       };
     }).toList();
 
+    // Convert criteria details to list of maps
     List<Map<String, dynamic>> criteria = _criteria.map((criterion) {
       return {
         'Description': criterion['Description']?.text ?? '',
@@ -310,6 +360,16 @@ class _TemplateCreationState extends State<TemplateCreation> {
       };
     }).toList();
 
+    // Prepare event mechanics data, including uploaded files
+    List<Map<String, dynamic>> eventMechanics = [
+      {
+        'description':
+            _eventMechanicsController.text, // Use the text from the controller
+        'files': _uploadedFiles // Use the uploaded files directly
+      }
+    ];
+
+    // Prepare data for saving
     Map<String, dynamic> data = {
       'eventName': eventName,
       'eventLocation': eventLocation,
@@ -317,6 +377,8 @@ class _TemplateCreationState extends State<TemplateCreation> {
       'judges': jsonEncode(judges),
       'participant': jsonEncode(participants),
       'criteria': jsonEncode(criteria),
+      'eventMechanics':
+          jsonEncode(eventMechanics), // Ensure this is correctly serialized
       'templateCode': _templateCode,
       'totalWeightage': _totalWeightage,
     };
@@ -335,7 +397,6 @@ class _TemplateCreationState extends State<TemplateCreation> {
       if (kDebugMode) {
         print('Error saving template: $e');
       }
-      // You can also show a message to the user here
     }
   }
 
@@ -368,7 +429,7 @@ class _TemplateCreationState extends State<TemplateCreation> {
             const SizedBox(height: 24),
             _buildTitleSection(),
             const SizedBox(height: 16),
-            _buildProgressBar(_currentStep, 4),
+            _buildProgressBar(_currentStep, 5),
             const SizedBox(height: 16),
             _buildTemplateForm(context),
           ],
@@ -532,8 +593,8 @@ class _TemplateCreationState extends State<TemplateCreation> {
           return Row(
             children: [
               Container(
-                height: 50,
-                width: 50,
+                height: 35, // Same size for all circles
+                width: 35,
                 decoration: BoxDecoration(
                   color: isActive ? const Color(0xFF9087E5) : Colors.white,
                   shape: BoxShape.circle,
@@ -597,10 +658,12 @@ class _TemplateCreationState extends State<TemplateCreation> {
                 ] else if (_currentStep == 3) ...[
                   _buildParticipantForm(),
                 ] else if (_currentStep == 4) ...[
-                  _buildCriteriaForm(),
+                  _buildEventMechanicsForm(context),
                 ] else if (_currentStep == 5) ...[
-                  _buildTemplateCodeDisplay(),
+                  _buildCriteriaForm(),
                 ] else if (_currentStep == 6) ...[
+                  _buildTemplateCodeDisplay(),
+                ] else if (_currentStep == 7) ...[
                   _buildTemplateCreatedDisplay(),
                 ],
                 const SizedBox(height: 16),
@@ -889,6 +952,65 @@ class _TemplateCreationState extends State<TemplateCreation> {
     );
   }
 
+  Widget _buildEventMechanicsForm(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Assuming you have a controller for event mechanics description
+        _buildTextField(
+          'Event Mechanics Description',
+          _eventMechanics[0]
+              ['description'], // Access the first mechanic's description
+        ),
+        const SizedBox(height: 16),
+
+        // File upload section
+        Text(
+          'Uploaded Files:',
+          style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 8),
+
+        // Display list of uploaded files
+        for (var file in _eventMechanics[0]
+            ['files']) // Access the files of the first mechanic
+          Text(
+            file ?? 'No file uploaded',
+            style: GoogleFonts.poppins(),
+          ),
+        const SizedBox(height: 16),
+
+        // Button to upload files
+        ElevatedButton(
+          onPressed: _selectFile,
+          style: ElevatedButton.styleFrom(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+            backgroundColor: Colors.white,
+          ),
+          child: Text('Upload Files', style: GoogleFonts.poppins()),
+        ),
+        const SizedBox(height: 16),
+      ],
+    );
+  }
+
+  Future<void> _selectFile() async {
+    final FilePickerResult? result = await FilePicker.platform.pickFiles(
+      allowMultiple: true,
+      type: FileType.any,
+    );
+
+    if (result != null) {
+      setState(() {
+        // Store the paths of the selected files
+        _uploadedFiles =
+            result.paths.where((path) => path != null).cast<String>().toList();
+      });
+    }
+  }
+
   Widget _buildTemplateCodeDisplay() {
     if (kDebugMode) {
       print('Displaying template code: $_templateCode');
@@ -989,7 +1111,7 @@ class _TemplateCreationState extends State<TemplateCreation> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        if (_currentStep < 5) ...[
+        if (_currentStep < 6) ...[
           ElevatedButton(
             onPressed: () {
               if (_currentStep > 1) {
@@ -1019,14 +1141,14 @@ class _TemplateCreationState extends State<TemplateCreation> {
           ),
           ElevatedButton(
             onPressed: () async {
-              if (_currentStep == 3 && !_isTemplateGenerated) {
+              if (_currentStep == 4 && !_isTemplateGenerated) {
                 setState(() {
                   _isTemplateGenerated = true;
                 });
               }
-              if (_currentStep < 5 || !_isTemplateGenerated) {
+              if (_currentStep < 6 || !_isTemplateGenerated) {
                 _nextStep();
-              } else if (_currentStep == 4 && _isTemplateGenerated) {
+              } else if (_currentStep == 5 && _isTemplateGenerated) {
                 // Generate template logic if needed
               }
             },
@@ -1041,7 +1163,7 @@ class _TemplateCreationState extends State<TemplateCreation> {
               ),
             ),
             child: Text(
-              _currentStep == 4 ? 'Generate Template' : 'Next',
+              _currentStep == 5 ? 'Generate Template' : 'Next',
               style: GoogleFonts.poppins(
                 fontWeight: FontWeight.w600,
                 fontSize: 16,
@@ -1049,14 +1171,14 @@ class _TemplateCreationState extends State<TemplateCreation> {
               ),
             ),
           ),
-        ] else if (_currentStep == 5) ...[
+        ] else if (_currentStep == 6) ...[
           ElevatedButton(
             onPressed: () async {
               if (_isTemplateGenerated) {
                 try {
                   await _saveTemplateToDatabase(); // Save template details
                   setState(() {
-                    _currentStep = 6; // Move to the final step
+                    _currentStep = 7; // Move to the final step
                   });
                 } catch (e) {
                   if (kDebugMode) {

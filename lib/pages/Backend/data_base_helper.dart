@@ -39,6 +39,7 @@ class DatabaseHelper {
       eventDate TEXT,
       judges TEXT,
       participant TEXT,
+      eventMechanics TEXT,
       criteria TEXT,
       templateCode TEXT,
       totalWeightage INTEGER
@@ -118,9 +119,6 @@ class DatabaseHelper {
         image TEXT
       )
     ''');
-
-      // Additional upgrades if necessary
-      // Example: Handle other schema changes based on version
     }
 
     if (kDebugMode) {
@@ -154,6 +152,7 @@ class DatabaseHelper {
     }
   }
 
+  // Insert a new template into the database
   Future<int> insertTemplate(Map<String, dynamic> template) async {
     final db = await database;
     try {
@@ -164,13 +163,11 @@ class DatabaseHelper {
         'judges': jsonEncode(template['judges'] ?? []),
         'participant': jsonEncode(template['participant'] ?? []),
         'criteria': jsonEncode(template['criteria'] ?? []),
+        'eventMechanics': jsonEncode(
+            template['eventMechanics'] ?? []), // Encode event mechanics as JSON
         'templateCode': template['templateCode'] ?? 'No Code',
         'totalWeightage': template['totalWeightage'] ?? 100,
       };
-
-      if (template.containsKey('photo')) {
-        encodedTemplate['photo'] = template['photo'];
-      }
 
       return await db.insert('templates', encodedTemplate);
     } catch (e) {
@@ -181,6 +178,7 @@ class DatabaseHelper {
     }
   }
 
+  // Retrieve all templates from the database
   Future<List<Map<String, dynamic>>> getTemplates() async {
     final db = await database;
     try {
@@ -200,6 +198,9 @@ class DatabaseHelper {
           'criteria': result['criteria'] != null
               ? jsonDecode(result['criteria'] as String)
               : [],
+          'eventMechanics': result['eventMechanics'] != null
+              ? jsonDecode(result['eventMechanics'] as String)
+              : [], // Decode event mechanics
           'templateCode': result['templateCode'] ?? 'No Code',
           'totalWeightage': result['totalWeightage'] ?? 100,
         };
@@ -212,6 +213,7 @@ class DatabaseHelper {
     }
   }
 
+  // Retrieve a specific template by its code
   Future<Map<String, dynamic>?> getTemplateByCode(String code) async {
     final db = await database;
     try {
@@ -237,6 +239,9 @@ class DatabaseHelper {
           'criteria': template['criteria'] != null
               ? jsonDecode(template['criteria'] as String)
               : [],
+          'eventMechanics': template['eventMechanics'] != null
+              ? jsonDecode(template['eventMechanics'] as String)
+              : [],
           'templateCode': template['templateCode'] ?? 'No Code',
           'totalWeightage': template['totalWeightage'] ?? 100,
         };
@@ -250,6 +255,7 @@ class DatabaseHelper {
     }
   }
 
+  // Update an existing template in the database
   Future<int> updateTemplate(Map<String, dynamic> template) async {
     final db = await database;
 
@@ -276,6 +282,8 @@ class DatabaseHelper {
       'judges': jsonEncode(template['judges'] ?? []),
       'participant': jsonEncode(template['participant'] ?? []),
       'criteria': jsonEncode(template['criteria'] ?? []),
+      'eventMechanics': jsonEncode(
+          template['eventMechanics'] ?? []), // Encode event mechanics as JSON
       'templateCode': template['templateCode'] ?? 'No Code',
       'totalWeightage': template['totalWeightage'] ?? 100,
     };
