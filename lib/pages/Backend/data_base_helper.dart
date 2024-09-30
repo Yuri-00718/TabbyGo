@@ -296,6 +296,81 @@ class DatabaseHelper {
     );
   }
 
+  //This method are for pulling the template data from firestore :)
+  Future<Map<String, dynamic>?> getTemplateDetails(String templateCode) async {
+    try {
+      var snapshot = await _firestore
+          .collection('templates') // Change to your actual collection name
+          .where('templateCode', isEqualTo: templateCode)
+          .get();
+
+      if (snapshot.docs.isNotEmpty) {
+        // Print the retrieved document for debugging
+        print('Template found: ${snapshot.docs.first.data()}');
+        return snapshot.docs.first.data();
+      } else {
+        print('No template found for code: $templateCode'); // Debugging line
+      }
+    } catch (e) {
+      print('Error getting template details: $e');
+    }
+    return null; // Return null if no template found
+  }
+
+  //save template code from code dialog in judge interface
+  Future<void> saveTemplateCode(String templateCode) async {
+    try {
+      await _firestore.collection('templateCodes').add({
+        'templateCode': templateCode,
+        'timestamp': FieldValue.serverTimestamp(), // Optional: add timestamp
+      });
+      print('Template code saved successfully: $templateCode');
+    } catch (e) {
+      print('Error saving template code: $e');
+    }
+  }
+
+  // Method to retrieve the latest saved template code
+  Future<String?> getLatestTemplateCode() async {
+    try {
+      QuerySnapshot snapshot = await _firestore
+          .collection('templateCodes')
+          .orderBy('timestamp', descending: true)
+          .limit(1) // Get the latest code
+          .get();
+
+      if (snapshot.docs.isNotEmpty) {
+        return snapshot.docs.first['templateCode'] as String?;
+      }
+      print('No template code found.');
+      return null;
+    } catch (e) {
+      print('Error retrieving template code: $e');
+      return null;
+    }
+  }
+
+  Future<String?> getLastSavedTemplateCode() async {
+    try {
+      var snapshot = await _firestore
+          .collection('templateCodes')
+          .orderBy('timestamp', descending: true) // Get the most recent code
+          .limit(1) // Limit to one document
+          .get();
+
+      if (snapshot.docs.isNotEmpty) {
+        String templateCode = snapshot.docs.first.data()['templateCode'];
+        print('Retrieved template code: $templateCode'); // Debugging line
+        return templateCode;
+      } else {
+        print('No saved template codes found.'); // Debugging line
+      }
+    } catch (e) {
+      print('Error retrieving template code: $e');
+    }
+    return null; // Return null if no template code found
+  }
+
   Future<int> deleteTemplate(int id) async {
     final db = await database;
     try {
@@ -783,6 +858,38 @@ class DatabaseHelper {
     }
   }
 
+  Future<String?> getTemplateCodeFromFirestore(String enteredCode) async {
+    try {
+      // Query the 'templates' collection where 'templateCode' matches the entered code
+      var querySnapshot = await FirebaseFirestore.instance
+          .collection('templates')
+          .where('templateCode', isEqualTo: enteredCode)
+          .limit(1) // Limit to 1 result since templateCode should be unique
+          .get();
+
+      if (querySnapshot.docs.isNotEmpty) {
+        var document = querySnapshot.docs.first;
+
+        print('Firestore Document Data: ${document.data()}');
+
+        // Check if the 'templateCode' field exists in the document
+        if (document.data().containsKey('templateCode')) {
+          // Cast 'templateCode' to String and return it
+          return document['templateCode'] as String?;
+        } else {
+          print('templateCode field does not exist in the document');
+          return null;
+        }
+      } else {
+        print('No document found for the entered template code');
+        return null;
+      }
+    } catch (e) {
+      print('Error fetching template code from Firestore: $e');
+      return null;
+    }
+  }
+
   Future<List<Map<String, dynamic>>> getTemplatesFirestore() async {
     try {
       final snapshot = await _firestore.collection('templates').get();
@@ -1000,4 +1107,6 @@ class DatabaseHelper {
       rethrow;
     }
   }
+
+  static create() {}
 }

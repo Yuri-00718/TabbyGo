@@ -38,10 +38,17 @@ dev_dependencies:
   uuid: ^4.5.0
   open_filex: ^4.5.0
   file_picker: ^8.1.2
+  dio: ^5.7.0
+  permission_handler: ^11.3.1
+  flutter_vector_icons: ^2.0.0
   
 flutter:
   uses-material-design: true
   assets:
+  - assets/images/text logo black.png
+  - assets/images/no-photo.png
+  - assets/images/text logo white.png
+  - assets/images/app logo.png  
   - assets/images/
   - assets/vectors/
   - assets/images/Google_Icon.png

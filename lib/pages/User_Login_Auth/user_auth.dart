@@ -1,11 +1,11 @@
 // ignore_for_file: depend_on_referenced_packages, use_super_parameters, library_private_types_in_public_api, use_build_context_synchronously
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:tabby/pages/Backend/data_base_helper.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class AuthenticationScreen extends StatefulWidget {
   final String role;
@@ -80,9 +80,15 @@ class _AuthenticationScreenState extends State<AuthenticationScreen> {
           username,
           password,
           userCredential.user!.displayName ?? '',
-          'Judge',
+          widget.role,
         );
-        Navigator.pushReplacementNamed(context, '/dashBoard');
+
+        // Redirect to respective dashboards based on role
+        if (widget.role == 'Admin') {
+          Navigator.pushReplacementNamed(context, '/dashBoard');
+        } else if (widget.role == 'Judge') {
+          Navigator.pushReplacementNamed(context, '/judge_dashboard');
+        }
       }
     } on FirebaseAuthException catch (e) {
       String errorMessage = e.code == 'email-already-in-use'
@@ -98,7 +104,24 @@ class _AuthenticationScreenState extends State<AuthenticationScreen> {
           .signInWithEmailAndPassword(email: username, password: password);
 
       if (userCredential.user != null) {
-        Navigator.pushReplacementNamed(context, '/dashBoard');
+        // Fetch the user's role from Firestore
+        var userDoc = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(userCredential.user!.uid)
+            .get();
+
+        if (userDoc.exists) {
+          String role = userDoc.data()?['role'] ?? '';
+
+          // Redirect to respective dashboards based on the role fetched
+          if (role == 'Admin') {
+            Navigator.pushReplacementNamed(context, '/dashBoard');
+          } else if (role == 'Judge') {
+            Navigator.pushReplacementNamed(context, '/judge_dashboard');
+          } else {
+            _showErrorDialog('No valid role found for this user.');
+          }
+        }
       }
     } on FirebaseAuthException catch (e) {
       String errorMessage;
@@ -125,23 +148,15 @@ class _AuthenticationScreenState extends State<AuthenticationScreen> {
       bool isAdmin = await dbHelper.loginAdmin(username, password);
       bool isJudge = await dbHelper.loginJudge(username, password);
 
-      if (isAdmin || isJudge) {
-        if (kDebugMode) {
-          print(isAdmin
-              ? 'Admin login successful in offline mode.'
-              : 'Judge login successful in offline mode.');
-        }
+      // Use local database role logic for offline mode
+      if (isAdmin) {
         Navigator.pushReplacementNamed(context, '/dashBoard');
+      } else if (isJudge) {
+        Navigator.pushReplacementNamed(context, '/judge_dashboard');
       } else {
-        if (kDebugMode) {
-          print('Invalid credentials for offline login.');
-        }
         _showErrorDialog('Invalid username or password (offline mode).');
       }
     } catch (e) {
-      if (kDebugMode) {
-        print('Error during offline login: $e');
-      }
       _showErrorDialog(
           'An error occurred during offline login: ${e.toString()}');
     }
@@ -151,23 +166,59 @@ class _AuthenticationScreenState extends State<AuthenticationScreen> {
     try {
       final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
 
-      if (googleUser != null) {
-        final GoogleSignInAuthentication googleAuth =
-            await googleUser.authentication;
-
-        final credential = GoogleAuthProvider.credential(
-          accessToken: googleAuth.accessToken,
-          idToken: googleAuth.idToken,
-        );
-
-        await FirebaseAuth.instance.signInWithCredential(credential);
-        Navigator.pushReplacementNamed(context, '/dashBoard');
-      } else {
+      if (googleUser == null) {
         _showErrorDialog('Google Sign-In was unsuccessful. Please try again.');
+        return;
+      }
+
+      final GoogleSignInAuthentication googleAuth =
+          await googleUser.authentication;
+
+      final OAuthCredential credential = GoogleAuthProvider.credential(
+        accessToken: googleAuth.accessToken,
+        idToken: googleAuth.idToken,
+      );
+
+      UserCredential userCredential =
+          await FirebaseAuth.instance.signInWithCredential(credential);
+
+      final String? uid = userCredential.user?.uid;
+      final String email = userCredential.user?.email ?? '';
+
+      if (uid != null) {
+        // Fetch the user's role from Firestore
+        DocumentSnapshot userDoc =
+            await FirebaseFirestore.instance.collection('users').doc(uid).get();
+
+        if (userDoc.exists) {
+          // If the document exists, get the role
+          String role = userDoc.get('role') ?? '';
+
+          // Redirect to the respective dashboard based on the role
+          if (role == 'Admin') {
+            Navigator.pushReplacementNamed(context, '/dashBoard');
+          } else if (role == 'Judge') {
+            Navigator.pushReplacementNamed(context, '/judge_dashboard');
+          } else {
+            _showErrorDialog('No valid role found for this user.');
+          }
+        } else {
+          // If user data does not exist, create a new user in Firestore
+          await FirebaseFirestore.instance.collection('users').doc(uid).set({
+            'email': email,
+            'role': 'Judge', // Default role, or allow selection
+            // Add more fields if needed
+          });
+
+          // Redirect to Judge dashboard as default role for new users
+          Navigator.pushReplacementNamed(context, '/judge_dashboard');
+        }
+      } else {
+        _showErrorDialog('Failed to sign in with Google. Please try again.');
       }
     } catch (e) {
       _showErrorDialog(
-          'An error occurred during Google Sign-In. Please try again.');
+          'An error occurred during Google Sign-In: ${e.toString()}');
     }
   }
 

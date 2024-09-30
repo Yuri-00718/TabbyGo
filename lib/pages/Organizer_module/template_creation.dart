@@ -10,6 +10,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:tabby/pages/Backend/data_base_helper.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:firebase_storage/firebase_storage.dart'; // For Firebase Storage
 
 class TemplateCreation extends StatefulWidget {
   final Map<String, dynamic>? template;
@@ -78,7 +79,6 @@ class _TemplateCreationState extends State<TemplateCreation> {
       _eventNameController.text = widget.template!['eventName'] ?? '';
       _eventLocationController.text = widget.template!['eventLocation'] ?? '';
       _dateController.text = widget.template!['eventDate'] ?? '';
-
       _templateCode =
           widget.template!['templateCode']?.toString() ?? _generateRandomCode();
 
@@ -91,6 +91,7 @@ class _TemplateCreationState extends State<TemplateCreation> {
       _criteria.clear();
       _eventMechanics.clear();
 
+      // Load template data
       _loadTemplateData();
     } else {
       _templateCode = _generateRandomCode();
@@ -158,7 +159,14 @@ class _TemplateCreationState extends State<TemplateCreation> {
       List<dynamic> mechanics = _getListFromTemplate('eventMechanics');
 
       for (var mechanic in mechanics) {
-        // Assuming you have a TextEditingController for event mechanics description
+        // Set the description
+        _eventMechanicsController.text = mechanic['description'] ?? '';
+
+        // Load uploaded files from the mechanic data
+        _uploadedFiles = mechanic['files'] != null
+            ? List<String>.from(mechanic['files'])
+            : <String>[];
+
         _eventMechanics.add({
           'description':
               TextEditingController(text: mechanic['description'] ?? ''),
@@ -313,15 +321,34 @@ class _TemplateCreationState extends State<TemplateCreation> {
     }
   }
 
-  // Update participant image with error handling
+// Update participant image with error handling
   Future<void> _updateParticipantImage(int index) async {
     final ImagePicker picker = ImagePicker();
     final XFile? image = await picker.pickImage(source: ImageSource.gallery);
 
     if (image != null) {
-      setState(() {
-        _participant[index]['Photo'] = image.path;
-      });
+      // Create a reference to the Firebase Storage location
+      final Reference storageRef = FirebaseStorage.instance
+          .ref()
+          .child('participant_photos/${image.name}');
+
+      // Upload the image to Firebase Storage
+      try {
+        await storageRef.putFile(File(image.path));
+
+        // Get the download URL
+        final String downloadUrl = await storageRef.getDownloadURL();
+
+        // Update the participant's photo URL in the local list
+        setState(() {
+          _participant[index]['Photo'] =
+              downloadUrl; // Store the URL instead of the local path
+        });
+      } catch (e) {
+        if (kDebugMode) {
+          print('Error uploading image: $e');
+        }
+      }
     }
   }
 
@@ -784,6 +811,7 @@ class _TemplateCreationState extends State<TemplateCreation> {
   }
 
   // Helper method to build the participant photo widget
+// Helper method to build the participant photo widget
   Widget _buildParticipantPhoto(String? imagePath) {
     if (imagePath == null || imagePath.isEmpty) {
       return Container(
@@ -804,7 +832,8 @@ class _TemplateCreationState extends State<TemplateCreation> {
       );
     }
 
-    try {
+    // Check if the imagePath is a URL
+    if (imagePath.startsWith('http')) {
       return Container(
         margin: const EdgeInsets.fromLTRB(0, 0, 10, 0),
         width: 50,
@@ -812,31 +841,48 @@ class _TemplateCreationState extends State<TemplateCreation> {
         decoration: BoxDecoration(
           shape: BoxShape.circle,
           image: DecorationImage(
-            image: FileImage(File(imagePath)),
+            image: NetworkImage(imagePath), // Use NetworkImage for URLs
             fit: BoxFit.cover,
           ),
         ),
       );
-    } catch (e) {
-      if (kDebugMode) {
-        print('Error loading image: $e');
-      }
-      return Container(
-        margin: const EdgeInsets.fromLTRB(0, 0, 10, 0),
-        width: 50,
-        height: 50,
-        decoration: const BoxDecoration(
-          shape: BoxShape.circle,
-          color: Color(0xFFE0E0E0),
-        ),
-        child: const Center(
-          child: Icon(
-            Icons.error,
-            color: Colors.red,
-            size: 24,
+    } else {
+      // Handle local image paths
+      try {
+        return Container(
+          margin: const EdgeInsets.fromLTRB(0, 0, 10, 0),
+          width: 50,
+          height: 50,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            image: DecorationImage(
+              image:
+                  FileImage(File(imagePath)), // Use FileImage for local files
+              fit: BoxFit.cover,
+            ),
           ),
-        ),
-      );
+        );
+      } catch (e) {
+        if (kDebugMode) {
+          print('Error loading image: $e');
+        }
+        return Container(
+          margin: const EdgeInsets.fromLTRB(0, 0, 10, 0),
+          width: 50,
+          height: 50,
+          decoration: const BoxDecoration(
+            shape: BoxShape.circle,
+            color: Color(0xFFE0E0E0),
+          ),
+          child: const Center(
+            child: Icon(
+              Icons.error,
+              color: Colors.red,
+              size: 24,
+            ),
+          ),
+        );
+      }
     }
   }
 
@@ -956,31 +1002,63 @@ class _TemplateCreationState extends State<TemplateCreation> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Assuming you have a controller for event mechanics description
         _buildTextField(
           'Event Mechanics Description',
-          _eventMechanics[0]
-              ['description'], // Access the first mechanic's description
+          _eventMechanicsController,
         ),
         const SizedBox(height: 16),
-
-        // File upload section
         Text(
-          'Uploaded Files:',
-          style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.bold),
+          'Uploaded File',
+          style: GoogleFonts.poppins(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            color: const Color.fromARGB(255, 255, 255, 255),
+          ),
         ),
         const SizedBox(height: 8),
-
-        // Display list of uploaded files
-        for (var file in _eventMechanics[0]
-            ['files']) // Access the files of the first mechanic
+        if (_uploadedFiles.isNotEmpty)
+          Column(
+            children: _uploadedFiles.map((fileUrl) {
+              String fileName =
+                  Uri.decodeFull(fileUrl!.split('/').last.split('?').first);
+              return Container(
+                margin:
+                    const EdgeInsets.only(bottom: 8), // Spacing between files
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.grey[200], // Light background for the container
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        fileName, // Display only the file name
+                        style: GoogleFonts.poppins(),
+                        overflow:
+                            TextOverflow.ellipsis, // Handle long file names
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.remove_circle, color: Colors.red),
+                      onPressed: () {
+                        setState(() {
+                          _uploadedFiles.remove(fileUrl);
+                        });
+                      },
+                    ),
+                  ],
+                ),
+              );
+            }).toList(),
+          ),
+        if (_uploadedFiles.isEmpty)
           Text(
-            file ?? 'No file uploaded',
+            'No files uploaded',
             style: GoogleFonts.poppins(),
           ),
         const SizedBox(height: 16),
-
-        // Button to upload files
         ElevatedButton(
           onPressed: _selectFile,
           style: ElevatedButton.styleFrom(
@@ -1002,12 +1080,40 @@ class _TemplateCreationState extends State<TemplateCreation> {
       type: FileType.any,
     );
 
-    if (result != null) {
-      setState(() {
-        // Store the paths of the selected files
-        _uploadedFiles =
-            result.paths.where((path) => path != null).cast<String>().toList();
-      });
+    if (result != null && result.paths.isNotEmpty) {
+      List<String> uploadedFileUrls = [];
+
+      for (var filePath in result.paths) {
+        if (filePath != null) {
+          File file = File(filePath);
+
+          try {
+            String fileName = file.path.split('/').last; // Get the file name
+            UploadTask uploadTask = FirebaseStorage.instance
+                .ref('event_mechanics/$fileName')
+                .putFile(file);
+
+            TaskSnapshot snapshot = await uploadTask;
+
+            if (mounted) {
+              String fileUrl = await snapshot.ref.getDownloadURL();
+              uploadedFileUrls.add(fileUrl);
+            }
+          } catch (e) {
+            if (mounted) {
+              if (kDebugMode) {
+                print('Error uploading file: $e');
+              }
+            }
+          }
+        }
+      }
+
+      if (mounted) {
+        setState(() {
+          _uploadedFiles = uploadedFileUrls; // Update the file URLs for display
+        });
+      }
     }
   }
 

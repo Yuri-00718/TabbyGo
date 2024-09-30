@@ -39,7 +39,6 @@ class _TemplateMenusState extends State<TemplateMenus> {
         templates.map((template) => _buildContentEvents(template)).toList(),
       );
 
-      // Update the state with the loaded results
       setState(() {
         contentEvents = loadedContentEvents;
       });
@@ -53,141 +52,90 @@ class _TemplateMenusState extends State<TemplateMenus> {
       final firestore = FirebaseFirestore.instance;
       final firestoreCollection = firestore.collection('templates');
 
-      // Retrieve local templates from SQLite
       final localTemplates = await DatabaseHelper.instance.getTemplates();
       final localTemplateIds =
           localTemplates.map((template) => template['id'].toString()).toSet();
-      if (kDebugMode) {
-        print('Local templates: $localTemplates');
-      }
 
-      // Retrieve templates from Firestore
       final firestoreTemplatesSnapshot = await firestoreCollection.get();
       final firestoreTemplateDocs = firestoreTemplatesSnapshot.docs;
       final firestoreTemplateIds =
           firestoreTemplateDocs.map((doc) => doc.id).toSet();
-      if (kDebugMode) {
-        print('Firestore templates IDs: $firestoreTemplateIds');
-      }
 
-      // Create a map for easy access to Firestore templates
       final firestoreTemplatesMap = {
         for (var doc in firestoreTemplateDocs) doc.id: doc.data()
       };
 
-      // Prepare lists for templates to add, update, and delete
       final templatesToAdd = <Map<String, dynamic>>[];
       final templatesToUpdate = <Map<String, dynamic>>[];
       final templatesToDelete = <String>{};
 
-      // Track which templates have been synchronized to avoid duplication
       final synchronizedTemplateIds =
           await DatabaseHelper.instance.getSynchronizedTemplateIds();
 
-      // Determine which templates to add, update, or delete
       for (final template in localTemplates) {
         final templateId = template['id'].toString();
-        if (kDebugMode) {
-          print('Processing local template ID: $templateId');
-        }
 
         if (firestoreTemplateIds.contains(templateId)) {
-          // Template exists in Firestore, check if it needs to be updated
           final firestoreTemplate = firestoreTemplatesMap[templateId];
           if (firestoreTemplate != null &&
               !_areTemplatesIdentical(firestoreTemplate, template)) {
             templatesToUpdate.add(template);
           }
         } else {
-          // Template doesn't exist in Firestore, prepare to add
           if (!synchronizedTemplateIds.contains(templateId)) {
             templatesToAdd.add(template);
           }
         }
       }
 
-      // Determine which templates to delete
       final templatesInFirestoreNotInLocal =
           firestoreTemplateIds.difference(localTemplateIds);
       templatesToDelete.addAll(templatesInFirestoreNotInLocal);
 
-      // Perform batch operations for Firestore
       final firestoreBatch = firestore.batch();
       for (final template in templatesToAdd) {
         final templateId = template['id'].toString();
         firestoreBatch.set(firestoreCollection.doc(templateId), template,
             SetOptions(merge: true));
-        if (kDebugMode) {
-          print('Queueing addition of template ID: $templateId');
-        }
       }
       for (final template in templatesToUpdate) {
         final templateId = template['id'].toString();
         firestoreBatch.set(firestoreCollection.doc(templateId), template,
             SetOptions(merge: true));
-        if (kDebugMode) {
-          print('Queueing update of template ID: $templateId');
-        }
       }
       if (templatesToAdd.isNotEmpty || templatesToUpdate.isNotEmpty) {
         await firestoreBatch.commit();
-        if (kDebugMode) {
-          print('Batch operation committed to Firestore');
-        }
       }
-
-      // Delete templates from local database
       for (final id in templatesToDelete) {
         await DatabaseHelper.instance.deleteTemplate(int.parse(id));
-        if (kDebugMode) {
-          print('Deleted local template ID: $id');
-        }
       }
 
-      // Insert or update Firestore templates in local SQLite
       final updatedFirestoreTemplatesData = firestoreTemplateDocs.map((doc) {
         final data = doc.data();
-        data['id'] = doc.id; // Ensure the Firestore document ID is stored
+        data['id'] = doc.id;
         return data;
       }).toList();
-      if (kDebugMode) {
-        print(
-            'Updated Firestore templates data: $updatedFirestoreTemplatesData');
-      }
 
       for (final templateData in updatedFirestoreTemplatesData) {
         final templateId = templateData['id'];
         if (!synchronizedTemplateIds.contains(templateId)) {
           await DatabaseHelper.instance.insertOrUpdateTemplate(templateData);
-          if (kDebugMode) {
-            print('Template synchronized from Firestore: $templateId');
-          }
           await DatabaseHelper.instance.markTemplateAsSynchronized(templateId);
         }
       }
 
-      // Reload templates from local SQLite database
-      await _loadTemplates();
-
-      // Notify user of successful sync
+      await _loadTemplates(); // Reload templates after sync
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Templates synchronized successfully!')),
       );
     } catch (e) {
       _handleError('Error syncing templates', e);
-      if (kDebugMode) {
-        print('Sync error: $e');
-      }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error syncing template: $e')),
-      );
     }
   }
 
 // Helper function to compare templates
   bool _areTemplatesIdentical(Map<String, dynamic> firestoreTemplate,
       Map<String, dynamic> localTemplate) {
-    // Compare relevant fields between the templates
     return firestoreTemplate['eventName'] == localTemplate['eventName'] &&
         firestoreTemplate['templateCode'] == localTemplate['templateCode'];
   }
