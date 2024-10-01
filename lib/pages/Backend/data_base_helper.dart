@@ -282,8 +282,7 @@ class DatabaseHelper {
       'judges': jsonEncode(template['judges'] ?? []),
       'participant': jsonEncode(template['participant'] ?? []),
       'criteria': jsonEncode(template['criteria'] ?? []),
-      'eventMechanics': jsonEncode(
-          template['eventMechanics'] ?? []), // Encode event mechanics as JSON
+      'eventMechanics': jsonEncode(template['eventMechanics'] ?? []),
       'templateCode': template['templateCode'] ?? 'No Code',
       'totalWeightage': template['totalWeightage'] ?? 100,
     };

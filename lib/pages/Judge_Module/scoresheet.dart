@@ -77,17 +77,33 @@ class _ScoresheetPageState extends State<ScoresheetPage> {
     });
   }
 
+  // Save scores and confirm the participant ID is not null
   void _saveScores() {
     final participantId = currentParticipant['id'];
     final participantName = currentParticipant['Name'];
+
+    if (participantId == null) {
+      _showErrorSnackBar('Participant ID is null. Cannot save scores.');
+      return;
+    }
+
+    int totalScore =
+        scores[currentParticipantIndex].fold(0, (sum, score) => sum + score);
+
     FirebaseFirestore.instance.collection('scoresheets').add({
       'participantId': participantId,
       'participantName': participantName,
       'scores': scores[currentParticipantIndex],
+      'totalScore': totalScore,
     }).then((value) {
-      if (kDebugMode) print("Scores saved successfully: $value");
+      if (kDebugMode) {
+        print("Scores and total score saved successfully: $value");
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Scores saved successfully!')));
     }).catchError((error) {
       if (kDebugMode) print("Error saving scores: $error");
+      _showErrorSnackBar('Error saving scores: $error');
     });
   }
 
@@ -254,6 +270,12 @@ class _ScoresheetPageState extends State<ScoresheetPage> {
       _initializeScoreControllers();
     }
 
+    // Convert weightage to an integer for validation
+    final maxScore =
+        int.tryParse(weightage) ?? 100; // Default to 100 if parsing fails
+    int score =
+        int.tryParse(_scoreControllers[index].text) ?? 0; // Current score
+
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
@@ -267,11 +289,32 @@ class _ScoresheetPageState extends State<ScoresheetPage> {
               border: InputBorder.none,
               hintText: 'Score',
               hintStyle: TextStyle(color: Color(0xFFB8B8B8)),
+              // Change text color if score exceeds maxScore
+              errorStyle: TextStyle(color: Colors.red),
+            ),
+            style: TextStyle(
+              color: score > maxScore ? Colors.red : Colors.black,
             ),
             onChanged: (value) {
               if (value.isNotEmpty) {
-                scores[currentParticipantIndex][index] =
-                    int.tryParse(value) ?? 0;
+                int score = int.tryParse(value) ?? 0;
+
+                // Ensure score doesn't exceed maxScore (weightage)
+                if (score > maxScore) {
+                  setState(() {
+                    _scoreControllers[index].text =
+                        maxScore.toString(); // Reset to maxScore
+                    scores[currentParticipantIndex][index] = maxScore;
+                  });
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                          'Score cannot exceed $maxScore for this criterion'),
+                    ),
+                  );
+                } else {
+                  scores[currentParticipantIndex][index] = score;
+                }
               }
               setState(() {}); // Update UI to reflect score changes
             },
@@ -305,11 +348,11 @@ class _ScoresheetPageState extends State<ScoresheetPage> {
   }
 
   Widget _buildCommentField() {
-    return TextField(
+    return const TextField(
       maxLines: 4,
       decoration: InputDecoration(
         hintText: 'Add a comment...',
-        border: const OutlineInputBorder(),
+        border: OutlineInputBorder(),
         filled: true,
         fillColor: Colors.white,
       ),
