@@ -1,8 +1,10 @@
-import 'package:flutter/foundation.dart';
+// ignore_for_file: depend_on_referenced_packages
+
 import 'package:flutter/material.dart';
 import 'dart:convert';
 import 'package:tabby/pages/Backend/data_base_helper.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class ScoresheetPage extends StatefulWidget {
   const ScoresheetPage({super.key});
@@ -17,6 +19,7 @@ class _ScoresheetPageState extends State<ScoresheetPage> {
   List<dynamic> _criteria = [];
   List<List<int>> scores = [];
   bool _isLoading = true;
+  String? templateCode;
   List<TextEditingController> _scoreControllers = [];
 
   @override
@@ -26,13 +29,13 @@ class _ScoresheetPageState extends State<ScoresheetPage> {
   }
 
   Future<void> _fetchTemplateDetails() async {
-    String? templateCode =
-        await DatabaseHelper.instance.getLatestTemplateCode();
+    templateCode = await DatabaseHelper.instance
+        .getLatestTemplateCode(); // Fetching the template code
 
-    if (templateCode != null && templateCode.isNotEmpty) {
+    if (templateCode != null && templateCode!.isNotEmpty) {
       try {
         var details =
-            await DatabaseHelper.instance.getTemplateDetails(templateCode);
+            await DatabaseHelper.instance.getTemplateDetails(templateCode!);
         if (details != null) {
           _parseTemplateDetails(details);
           scores = List.generate(
@@ -60,12 +63,20 @@ class _ScoresheetPageState extends State<ScoresheetPage> {
         : [];
     _criteria =
         details['criteria'] != null ? _decodeJson(details['criteria']) : [];
+
+    // Assign a sequential ID starting from 1 if the participant ID is null
+    for (int i = 0; i < _participants.length; i++) {
+      if (_participants[i]['id'] == null) {
+        _participants[i]['id'] = i + 1; // Start IDs from 1
+      }
+    }
   }
 
   dynamic _decodeJson(dynamic value) {
     return value is String ? jsonDecode(value) : value;
   }
 
+//participant getter natin idol
   Map<String, dynamic> get currentParticipant =>
       _participants.isNotEmpty ? _participants[currentParticipantIndex] : {};
 
@@ -77,34 +88,44 @@ class _ScoresheetPageState extends State<ScoresheetPage> {
     });
   }
 
-  // Save scores and confirm the participant ID is not null
-  void _saveScores() {
+  // Save scores and other data hehe
+  void _saveSheets() async {
     final participantId = currentParticipant['id'];
-    final participantName = currentParticipant['Name'];
-
-    if (participantId == null) {
-      _showErrorSnackBar('Participant ID is null. Cannot save scores.');
+    if (participantId == null || participantId <= 0) {
+      _showErrorSnackBar('Invalid participant ID. Cannot save scores.');
       return;
     }
 
+    // Calculate total score
     int totalScore =
         scores[currentParticipantIndex].fold(0, (sum, score) => sum + score);
 
-    FirebaseFirestore.instance.collection('scoresheets').add({
-      'participantId': participantId,
-      'participantName': participantName,
-      'scores': scores[currentParticipantIndex],
-      'totalScore': totalScore,
-    }).then((value) {
-      if (kDebugMode) {
-        print("Scores and total score saved successfully: $value");
-      }
+    // Check for invalid scores (e.g., negative scores)
+    if (scores[currentParticipantIndex].any((score) => score < 0)) {
+      _showErrorSnackBar('Scores cannot be negative.');
+      return;
+    }
+
+    String? judgeEmail = FirebaseAuth.instance.currentUser?.email;
+    String? participantPhoto =
+        currentParticipant['Photo']; // Get participant's photo URL
+
+    try {
+      await FirebaseFirestore.instance.collection('scoresheets').add({
+        'participantId': participantId,
+        'participantName': currentParticipant['Name'],
+        'participantPhoto':
+            participantPhoto, // Include the participant's photo URL
+        'scores': scores[currentParticipantIndex],
+        'totalScore': totalScore,
+        'judgeEmail': judgeEmail,
+        'templateCode': templateCode,
+      });
       ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Scores saved successfully!')));
-    }).catchError((error) {
-      if (kDebugMode) print("Error saving scores: $error");
+    } catch (error) {
       _showErrorSnackBar('Error saving scores: $error');
-    });
+    }
   }
 
   void _initializeScoreControllers() {
@@ -387,7 +408,7 @@ class _ScoresheetPageState extends State<ScoresheetPage> {
                       TextButton(
                         onPressed: () {
                           Navigator.of(context).pop();
-                          _saveScores();
+                          _saveSheets();
                           setState(() {
                             currentParticipantIndex++;
                             _clearScoreControllers();
@@ -411,7 +432,7 @@ class _ScoresheetPageState extends State<ScoresheetPage> {
         if (currentParticipantIndex == _participants.length - 1)
           ElevatedButton(
             onPressed: () {
-              _saveScores();
+              _saveSheets();
               // Navigate back to Dashboard or another page after submission
               Navigator.of(context).pop();
             },

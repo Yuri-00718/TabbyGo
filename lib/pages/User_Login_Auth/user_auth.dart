@@ -113,6 +113,10 @@ class _AuthenticationScreenState extends State<AuthenticationScreen> {
         if (userDoc.exists) {
           String role = userDoc.data()?['role'] ?? '';
 
+          // Optionally, you can store or print the email
+          String email = userCredential.user!.email ?? '';
+          print('Logged in user email: $email');
+
           // Redirect to respective dashboards based on the role fetched
           if (role == 'Admin') {
             Navigator.pushReplacementNamed(context, '/dashBoard');
@@ -185,13 +189,14 @@ class _AuthenticationScreenState extends State<AuthenticationScreen> {
       final String? uid = userCredential.user?.uid;
       final String email = userCredential.user?.email ?? '';
 
+      print('Logged in user email: $email'); // Debugging line
+
       if (uid != null) {
         // Fetch the user's role from Firestore
         DocumentSnapshot userDoc =
             await FirebaseFirestore.instance.collection('users').doc(uid).get();
 
         if (userDoc.exists) {
-          // If the document exists, get the role
           String role = userDoc.get('role') ?? '';
 
           // Redirect to the respective dashboard based on the role
@@ -203,14 +208,13 @@ class _AuthenticationScreenState extends State<AuthenticationScreen> {
             _showErrorDialog('No valid role found for this user.');
           }
         } else {
-          // If user data does not exist, create a new user in Firestore
+          // Create a new user in Firestore
           await FirebaseFirestore.instance.collection('users').doc(uid).set({
             'email': email,
-            'role': 'Judge', // Default role, or allow selection
+            'role': 'Judge', // Default role
             // Add more fields if needed
           });
 
-          // Redirect to Judge dashboard as default role for new users
           Navigator.pushReplacementNamed(context, '/judge_dashboard');
         }
       } else {

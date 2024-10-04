@@ -353,7 +353,7 @@ class DashboardContent extends StatelessWidget {
           // Navigate directly to ScoresheetPage
           Navigator.push(
             context,
-            MaterialPageRoute(builder: (context) => ScoresheetPage()),
+            MaterialPageRoute(builder: (context) => const ScoresheetPage()),
           );
         },
         borderRadius: BorderRadius.circular(10),
@@ -389,42 +389,6 @@ class DashboardContent extends StatelessWidget {
         ),
       ),
     );
-  }
-
-  static Future<void> _validateCode(
-      BuildContext context, String enteredCode) async {
-    String templateCode =
-        await _getTemplateCodeFromFirestore(); // Fetch template code from Firestore
-
-    if (templateCode == enteredCode) {
-      Navigator.of(context).pop(); // Close the dialog
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-            builder: (context) =>
-                const ScoresheetPage()), // Navigate to judging interface
-      );
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Invalid code! Please try again.')),
-      );
-    }
-  }
-
-  static Future<String> _getTemplateCodeFromFirestore() async {
-    String templateCode = '';
-
-    // Firestore query to retrieve the template code from the 'templates' collection
-    var snapshot = await FirebaseFirestore.instance
-        .collection('templates')
-        .doc('1') // Use the document ID here (in your case '1')
-        .get();
-
-    if (snapshot.exists) {
-      templateCode = snapshot['templateCode']; // Retrieve the template code
-    }
-
-    return templateCode;
   }
 }
 

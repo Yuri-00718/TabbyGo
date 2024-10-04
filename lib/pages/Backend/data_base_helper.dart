@@ -744,27 +744,20 @@ class DatabaseHelper {
   }
 
   //Results methods
+// Assuming you have a method to retrieve scores
   Future<List<Map<String, dynamic>>> getResults() async {
-    final db = await database;
     try {
-      final results = await db.query('results');
-      return results.map((result) {
-        return {
-          'id': result['id'],
-          'event_code': result['event_code'] ?? '',
-          'participant_name': result['participant_name'] ?? '',
-          'points': result['points'] ?? 0,
-          'rank': result['rank'] ?? 0,
-        };
-      }).toList();
+      // Fetch results from Firestore
+      var resultsSnapshot =
+          await FirebaseFirestore.instance.collection('results').get();
+      return resultsSnapshot.docs.map((doc) => doc.data()).toList();
     } catch (e) {
-      if (kDebugMode) {
-        print('Error retrieving results: $e');
-      }
-      rethrow;
+      print("Error retrieving results: $e");
+      return [];
     }
   }
 
+/*
   Future<int> insertAdditionalRank(Map<String, dynamic> rank) async {
     final db = await database;
     try {
@@ -783,27 +776,7 @@ class DatabaseHelper {
       rethrow;
     }
   }
-
-  Future<List<Map<String, dynamic>>> getAdditionalRanks() async {
-    final db = await database;
-    try {
-      final results = await db.query('additional_ranks');
-      return results.map((result) {
-        return {
-          'id': result['id'],
-          'event_code': result['event_code'] ?? '',
-          'participant_name': result['participant_name'] ?? '',
-          'additional_points': result['additional_points'] ?? 0,
-          'additional_rank': result['additional_rank'] ?? 0,
-        };
-      }).toList();
-    } catch (e) {
-      if (kDebugMode) {
-        print('Error retrieving additional ranks: $e');
-      }
-      rethrow;
-    }
-  }
+*/
 
   Future<int> insertResult(Map<String, dynamic> result) async {
     final db = await database;

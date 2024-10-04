@@ -49,7 +49,7 @@ class MyApp extends StatelessWidget {
         '/JudgeManagement': (context) => const UserManagement(),
 
         // Judge Module Routes
-        '/criteria': (context) => CriteriaPage(),
+        '/criteria': (context) => const CriteriaPage(),
         '/event': (context) => const EventPage(),
         '/history': (context) => const HistoryPage(),
         '/judge_dashboard': (context) => const Dashboard(),

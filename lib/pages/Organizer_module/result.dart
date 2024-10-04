@@ -1,9 +1,8 @@
-// ignore_for_file: depend_on_referenced_packages
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
-// ignore: use_key_in_widget_constructors
 class Result extends StatelessWidget {
   final TextStyle goodMorningStyle = GoogleFonts.rubik(
     fontWeight: FontWeight.w500,
@@ -50,21 +49,24 @@ class Result extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final screenHeight = MediaQuery.of(context).size.height;
+    final screenWidth = MediaQuery.of(context).size.width;
+
     return Scaffold(
       backgroundColor: const Color(0xFF6A5AE0),
       body: Stack(
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(13, 36, 7.3, 0),
+            padding: EdgeInsets.fromLTRB(13, screenHeight * 0.05, 7.3, 0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _buildHeader(),
                 _buildResultsSection(context),
                 _buildEventContainer(context),
-                _buildSynchronizedButton(context), // Add button here
+                _buildSynchronizedButton(context),
                 Expanded(
-                  child: _buildPodiumStack(context),
+                  child: _buildPodiumStack(context, screenHeight, screenWidth),
                 ),
               ],
             ),
@@ -149,8 +151,7 @@ class Result extends StatelessWidget {
 
   Widget _buildEventContainer(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(
-          22, 0, 22, 10), // Adjust bottom padding to fit with the podium
+      padding: const EdgeInsets.fromLTRB(22, 0, 22, 10),
       child: Center(
         child: Container(
           constraints: BoxConstraints(
@@ -186,7 +187,7 @@ class Result extends StatelessWidget {
           // Add your refresh logic here
         },
         icon: const Icon(
-          Icons.access_time, // Clock icon
+          Icons.access_time,
           size: 20,
           color: Color(0xFF9087E5),
         ),
@@ -200,7 +201,7 @@ class Result extends StatelessWidget {
           ),
         ),
         style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFF5144B6), // Background color
+          backgroundColor: const Color(0xFF5144B6),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(8),
           ),
@@ -210,92 +211,168 @@ class Result extends StatelessWidget {
     );
   }
 
-  Widget _buildPodiumStack(BuildContext context) {
-    final screenHeight = MediaQuery.of(context).size.height;
-    final screenWidth = MediaQuery.of(context).size.width;
+  Widget _buildPodiumStack(
+      BuildContext context, double screenHeight, double screenWidth) {
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance.collection('scoresheets').snapshots(),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) {
+          return const Center(
+            child: CircularProgressIndicator(),
+          );
+        }
+
+        var scores = snapshot.data!.docs.map((doc) {
+          final data = doc.data() as Map<String, dynamic>;
+          return {
+            'name': data['participantName'] ??
+                'Unknown', // Default to 'Unknown' if null
+            'points': data['totalScore'] ?? 0, // Default to 0 if null
+            'participantPhoto': data['participantPhoto'] ??
+                '', // Default to empty string if null
+            'templateCode':
+                data['templateCode'] ?? '', // Default to empty string if null
+          };
+        }).toList();
+
+        if (scores.isEmpty) {
+          return const Center(child: Text("No scores available"));
+        }
+
+        return Stack(
+          alignment: Alignment.center,
+          children: [
+            Positioned(
+              bottom: 100,
+              child: SizedBox(
+                width: screenWidth,
+                height: screenHeight * 0.40,
+                child: Image.asset(
+                  'assets/images/POLE.png',
+                  fit: BoxFit.contain,
+                  alignment: Alignment.bottomCenter,
+                ),
+              ),
+            ),
+            _buildPodiumWinnerInfo(scores, screenHeight, screenWidth),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildPodiumWinnerInfo(List<Map<String, dynamic>> scores,
+      double screenHeight, double screenWidth) {
+    // Sort scores in descending order based on points
+    scores.sort((a, b) => b['points'].compareTo(a['points']));
 
     return Stack(
-      alignment: Alignment.center,
+      alignment: Alignment.bottomCenter,
       children: [
-        Positioned(
-          bottom: 100, // Position at the bottom
-          child: SizedBox(
-            width: screenWidth,
-            height: screenHeight * 0.40,
-            child: Image.asset(
-              'assets/images/POLE.png',
-              fit: BoxFit.contain,
-              alignment: Alignment.bottomCenter,
-            ),
-          ),
-        ),
-        Positioned(
-          bottom: screenHeight * 0.47,
-          child: SizedBox(
-            width: screenWidth,
-            child: Align(
-              alignment: Alignment.topCenter,
-              child: _buildWinnerInfo(
-                  'ADNU', 'assets/images/Winner.png', '94 POINTS'),
-            ),
-          ),
-        ),
-        Positioned(
-          bottom: screenHeight * 0.42,
-          child: SizedBox(
-            width: screenWidth,
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: Container(
-                margin: EdgeInsets.only(left: screenWidth * 0.14),
+        if (scores.isNotEmpty && scores.length > 1)
+          Positioned(
+            bottom: screenHeight * 0.41,
+            right: screenWidth * 0.64,
+            child: SizedBox(
+              width: screenWidth * 0.25,
+              child: Align(
+                alignment: Alignment.center,
                 child: _buildWinnerInfo(
-                    'ADD', 'assets/images/Winner.png', '93 POINTS'),
+                  scores[1]['name'] ??
+                      'Unknown', // Default to 'Unknown' if null
+                  scores[1]['participantPhoto'] ??
+                      '', // Corrected to participantPhoto
+                  '${scores[1]['points'] ?? 0} POINTS', // Default to 0 if null
+                ),
               ),
             ),
           ),
-        ),
-        Positioned(
-          bottom: screenHeight * 0.39,
-          child: SizedBox(
-            width: screenWidth,
-            child: Align(
-              alignment: Alignment.centerRight,
-              child: Container(
-                margin: EdgeInsets.only(right: screenWidth * 0.14),
+        if (scores.isNotEmpty)
+          Positioned(
+            bottom: screenHeight * 0.47,
+            child: SizedBox(
+              width: screenWidth * 0.3,
+              child: Align(
+                alignment: Alignment.center,
                 child: _buildWinnerInfo(
-                    'ADMU', 'assets/images/Winner.png', '92 POINTS'),
+                  scores[0]['name'] ?? 'Unknown', // First place name
+                  scores[0]['participantPhoto'] ??
+                      '', // Corrected to participantPhoto
+                  '${scores[0]['points'] ?? 0} POINTS', // First place points
+                ),
               ),
             ),
           ),
-        ),
+        if (scores.length > 2)
+          Positioned(
+            bottom: screenHeight * 0.38,
+            left: screenWidth * 0.63,
+            child: SizedBox(
+              width: screenWidth * 0.25,
+              child: Align(
+                alignment: Alignment.center,
+                child: _buildWinnerInfo(
+                  scores[2]['name'] ?? 'Unknown', // Third place name
+                  scores[2]['participantPhoto'] ??
+                      '', // Corrected to participantPhoto
+                  '${scores[2]['points'] ?? 0} POINTS', // Third place points
+                ),
+              ),
+            ),
+          ),
       ],
     );
   }
 
-  Widget _buildWinnerInfo(String name, String avatarPath, String points) {
+  Widget _buildWinnerInfo(String name, String photoUrl, String points) {
+    // Define the text style for participant names
+    final TextStyle resultsStyle = GoogleFonts.poppins(
+      fontWeight: FontWeight.w500,
+      fontSize: 15,
+      height: 1.5,
+      color: const Color(0xFFFFFFFF),
+    );
+
+    // Define a smaller style for points, bolded
+    final TextStyle pointsStyle = GoogleFonts.poppins(
+      fontWeight: FontWeight.w700,
+      fontSize: 14, // Adjust the font size for points if needed
+      color: const Color(0xFFE7E4E4), // Desired color for points
+    );
+
     return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        CircleAvatar(
-          backgroundImage: AssetImage(avatarPath),
-          radius: 26, // Adjust radius for visibility
-        ),
-        const SizedBox(height: 8),
-        Text(
-          name,
-          style: GoogleFonts.rubik(
-            fontWeight: FontWeight.w500,
-            fontSize: 16, // Adjust font size for visibility
-            color: Colors.white,
+        // Use ClipOval to create a circular image
+        ClipOval(
+          child: Image.network(
+            photoUrl,
+            height: 70,
+            width: 70,
+            fit: BoxFit.cover,
+            errorBuilder: (context, error, stackTrace) {
+              return const Icon(Icons.error, size: 50);
+            },
+            loadingBuilder: (context, child, loadingProgress) {
+              if (loadingProgress == null) {
+                return child;
+              }
+              return const Center(child: CircularProgressIndicator());
+            },
           ),
         ),
         const SizedBox(height: 4),
         Text(
+          name,
+          textAlign: TextAlign.center,
+          overflow: TextOverflow.ellipsis,
+          maxLines: 1,
+          style: resultsStyle,
+        ),
+        Text(
           points,
-          style: GoogleFonts.rubik(
-            fontWeight: FontWeight.w400,
-            fontSize: 14, // Adjust font size for visibility
-            color: Colors.white,
-          ),
+          textAlign: TextAlign.center,
+          style: pointsStyle,
         ),
       ],
     );
@@ -303,9 +380,9 @@ class Result extends StatelessWidget {
 
   Widget _buildBottomDrawer() {
     return DraggableScrollableSheet(
-      initialChildSize: 0.2, // Adjust to control initial visibility
-      minChildSize: 0.2, // Minimum height of the drawer
-      maxChildSize: 0.8, // Maximum height of the drawer
+      initialChildSize: 0.2,
+      minChildSize: 0.2,
+      maxChildSize: 0.8,
       builder: (BuildContext context, ScrollController scrollController) {
         return StatefulBuilder(
           builder: (BuildContext context, StateSetter setState) {
@@ -314,7 +391,6 @@ class Result extends StatelessWidget {
                     (scrollController.position.maxScrollExtent * 0.5);
 
             scrollController.addListener(() {
-              // Update the state based on scroll position
               bool newIsExpanded = scrollController.offset >
                   (scrollController.position.maxScrollExtent * 0.5);
               if (newIsExpanded != isExpanded) {
@@ -333,7 +409,6 @@ class Result extends StatelessWidget {
                 children: [
                   GestureDetector(
                     onTap: () {
-                      // Trigger scrolling to expand or collapse
                       if (scrollController.hasClients) {
                         double targetSize = isExpanded ? 0.2 : 0.8;
                         scrollController.animateTo(
@@ -347,13 +422,12 @@ class Result extends StatelessWidget {
                     child: Padding(
                       padding: const EdgeInsets.symmetric(vertical: 8),
                       child: Transform.rotate(
-                        angle: isExpanded ? 3.14 : 0, // Rotate when expanded
+                        angle: isExpanded ? 3.14 : 0,
                         child: Image.asset(
-                          'assets/images/Arrow_Up.png', // Replace with your image path
+                          'assets/images/Arrow_Up.png',
                           width: 24,
                           height: 24,
-                          color:
-                              const Color(0xFF9087E5), // Set color for the icon
+                          color: const Color(0xFF9087E5),
                         ),
                       ),
                     ),
@@ -385,68 +459,98 @@ class Result extends StatelessWidget {
   }
 
   Widget _buildRankList() {
-    List<Map<String, String>> ranks = [
-      {'rank': '4th', 'name': 'Contestant 4', 'points': '85 POINTS'},
-      {'rank': '5th', 'name': 'Contestant 5', 'points': '80 POINTS'},
-      {'rank': '6th', 'name': 'Contestant 6', 'points': '75 POINTS'},
-    ];
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance.collection('scoresheets').snapshots(),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) {
+          return const Center(child: CircularProgressIndicator());
+        }
 
-    return Column(
-      children: ranks.map((rank) {
-        return Container(
-          decoration: BoxDecoration(
-            color: const Color(0xFFE6E6E6),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          margin: const EdgeInsets.symmetric(vertical: 8),
-          padding: const EdgeInsets.all(12),
-          child: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF9087E5),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(
-                  rank['rank']!,
-                  style: GoogleFonts.rubik(
-                    fontWeight: FontWeight.w500,
-                    fontSize: 16,
-                  ),
-                ),
+        // Create a list of participant scores
+        var participants = snapshot.data!.docs.map((doc) {
+          final data = doc.data() as Map<String, dynamic>;
+          return {
+            'name': data['participantName'] ?? 'Unknown', // Participant's name
+            'totalScore': data['totalScore'] ?? 0, // Participant's score
+            'participantPhoto':
+                data['participantPhoto'] ?? '', // Participant's image URL
+          };
+        }).toList();
+
+        // Sort participants based on their totalScore in descending order
+        participants.sort((a, b) =>
+            (b['totalScore'] as int).compareTo(a['totalScore'] as int));
+
+        if (participants.isEmpty) {
+          return const Center(child: Text("No ranks available"));
+        }
+
+        // Filter out the top 3 ranks
+        var additionalRanks = participants.sublist(3); // Get ranks 4 and above
+
+        return Column(
+          children: additionalRanks.asMap().entries.map((entry) {
+            int index = entry.key;
+            var rank = entry.value;
+
+            return Container(
+              decoration: BoxDecoration(
+                color: const Color(0xFFE6E6E6),
+                borderRadius: BorderRadius.circular(12),
               ),
-              const SizedBox(width: 16),
-              const CircleAvatar(
-                backgroundImage: AssetImage(
-                    'assets/images/Winner.png'), // Replace with the contestant's image
-                radius: 26,
-              ),
-              const SizedBox(width: 16),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              margin: const EdgeInsets.symmetric(vertical: 8),
+              padding: const EdgeInsets.all(12),
+              child: Row(
                 children: [
-                  Text(
-                    rank['name']!,
-                    style: GoogleFonts.rubik(
-                      fontWeight: FontWeight.w500,
-                      fontSize: 16,
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF9087E5),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      '${index + 4}th', // Calculate the rank starting from 4th
+                      style: GoogleFonts.rubik(
+                        fontWeight: FontWeight.w500,
+                        fontSize: 16,
+                      ),
                     ),
                   ),
-                  Text(
-                    rank['points']!,
-                    style: GoogleFonts.rubik(
-                      fontWeight: FontWeight.w400,
-                      fontSize: 14,
-                      color: Colors.grey[600],
+                  const SizedBox(width: 16),
+                  CircleAvatar(
+                    backgroundImage: NetworkImage(
+                      rank[
+                          'participantPhoto'], // Use the participant's image URL
                     ),
+                    radius: 26,
+                  ),
+                  const SizedBox(width: 16),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        rank['name']!,
+                        style: GoogleFonts.rubik(
+                          fontWeight: FontWeight.w500,
+                          fontSize: 16,
+                        ),
+                      ),
+                      Text(
+                        '${rank['totalScore']} POINTS',
+                        style: GoogleFonts.rubik(
+                          fontWeight: FontWeight.w400,
+                          fontSize: 14,
+                          color: Colors.grey[600],
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
-            ],
-          ),
+            );
+          }).toList(),
         );
-      }).toList(),
+      },
     );
   }
 }
