@@ -5,6 +5,7 @@ import 'dart:convert';
 import 'package:tabby/pages/Backend/data_base_helper.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:tabby/pages/Judge_Module/Judge_Chat_Module.dart';
 
 class ScoresheetPage extends StatefulWidget {
   const ScoresheetPage({super.key});
@@ -148,13 +149,27 @@ class _ScoresheetPageState extends State<ScoresheetPage> {
         elevation: 0,
         title: const Text('Tabby Go', style: TextStyle(color: Colors.black)),
         centerTitle: true,
-        actions: const [
+        actions: [
           Padding(
-              padding: EdgeInsets.all(12.0),
-              child: Icon(Icons.chat_bubble_outline, color: Colors.black)),
-          Padding(
-              padding: EdgeInsets.all(12.0),
-              child: Icon(Icons.timer, color: Colors.black)),
+            padding: const EdgeInsets.all(12.0),
+            child: GestureDetector(
+              onTap: () {
+                // Navigate to Judge_Chat_Module when the icon is tapped
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (context) => const ChatScreen(
+                            chatId: 'chat_id_between_admin_and_judge',
+                          )),
+                );
+              },
+              child: const Icon(Icons.chat_bubble_outline, color: Colors.black),
+            ),
+          ),
+          const Padding(
+            padding: EdgeInsets.all(12.0),
+            child: Icon(Icons.timer, color: Colors.black),
+          ),
         ],
       ),
       body: Padding(
