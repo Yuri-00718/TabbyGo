@@ -11,7 +11,6 @@ class ResultAndReportsActiveEvents extends StatefulWidget {
   const ResultAndReportsActiveEvents({super.key});
 
   @override
-  // ignore: library_private_types_in_public_api
   _ResultAndReportsActiveEventsState createState() =>
       _ResultAndReportsActiveEventsState();
 }
@@ -33,11 +32,19 @@ class _ResultAndReportsActiveEventsState
       // Fetch all templates (events) from the database
       final allEvents = await DatabaseHelper.instance.getTemplates();
 
-      // Filter active events based on the template code
+      // Fetch scores from the database (you need to implement this method)
+      final scoresheets = await DatabaseHelper.instance.getScoresheets();
+
+      // Get template codes from scoresheets to filter active events
+      final scoreTemplateCodes =
+          scoresheets.map((score) => score['templateCode']).toSet();
+
+      // Filter active events based on the template code and whether scores exist
       activeEvents = allEvents.where((event) {
-        // Replace 'templateCodeField' with the actual field name used to determine if an event is active
-        return event['templateCodeField'] != null &&
-            event['templateCodeField'] != '';
+        final templateCode = event['templateCode'];
+        return templateCode != null &&
+            templateCode.isNotEmpty &&
+            scoreTemplateCodes.contains(templateCode);
       }).toList();
 
       setState(() {
@@ -67,7 +74,7 @@ class _ResultAndReportsActiveEventsState
             const SizedBox(height: 29),
             Expanded(
               child: _isActiveEventSelected
-                  ? _buildEventContainer(context)
+                  ? _buildActiveEventContainer(context)
                   : _buildAllEventGrid(),
             ),
           ],
@@ -225,7 +232,7 @@ class _ResultAndReportsActiveEventsState
     );
   }
 
-  Widget _buildEventContainer(BuildContext context) {
+  Widget _buildActiveEventContainer(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
     final screenHeight = MediaQuery.of(context).size.height;
     final bottomPadding = screenHeight * 0.5;
@@ -233,12 +240,16 @@ class _ResultAndReportsActiveEventsState
     return Padding(
       padding: EdgeInsets.only(top: 16, bottom: bottomPadding),
       child: activeEvents.isEmpty
-          ? const Center(child: CircularProgressIndicator())
+          ? const Center(child: Text('No active event found'))
           : GestureDetector(
               onTap: () {
+                // Pass the event name to the Result module
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => Result()),
+                  MaterialPageRoute(
+                    builder: (context) =>
+                        Result(eventName: activeEvents.first['eventName']),
+                  ),
                 );
               },
               child: SizedBox(
@@ -283,9 +294,13 @@ class _ResultAndReportsActiveEventsState
               final event = events[index];
               return GestureDetector(
                 onTap: () {
+                  // Pass the event name to the Result module
                   Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (context) => Result()),
+                    MaterialPageRoute(
+                      builder: (context) =>
+                          Result(eventName: event['eventName']),
+                    ),
                   );
                 },
                 child: Container(

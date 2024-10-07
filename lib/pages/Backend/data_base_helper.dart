@@ -1064,6 +1064,20 @@ class DatabaseHelper {
     }
   }
 
+  Future<List<Map<String, dynamic>>> getScoresheets() async {
+    try {
+      final querySnapshot =
+          await FirebaseFirestore.instance.collection('scoresheets').get();
+      return querySnapshot.docs.map((doc) => doc.data()).toList();
+    } catch (e) {
+      // Handle any errors here
+      if (kDebugMode) {
+        print("Error fetching scoresheets: $e");
+      }
+      return [];
+    }
+  }
+
   // Insert or update admin in Firestore
   Future<void> insertOrUpdateAdminFirestore(
       String id, Map<String, dynamic> admin) async {

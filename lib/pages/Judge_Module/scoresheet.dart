@@ -92,6 +92,10 @@ class _ScoresheetPageState extends State<ScoresheetPage> {
   // Save scores and other data hehe
   void _saveSheets() async {
     final participantId = currentParticipant['id'];
+    final judgeEmail = FirebaseAuth.instance.currentUser?.email;
+    final judgeId = FirebaseAuth.instance.currentUser?.uid; // Add judge ID
+    final participantPhoto = currentParticipant['Photo'];
+
     if (participantId == null || participantId <= 0) {
       _showErrorSnackBar('Invalid participant ID. Cannot save scores.');
       return;
@@ -107,21 +111,18 @@ class _ScoresheetPageState extends State<ScoresheetPage> {
       return;
     }
 
-    String? judgeEmail = FirebaseAuth.instance.currentUser?.email;
-    String? participantPhoto =
-        currentParticipant['Photo']; // Get participant's photo URL
-
     try {
       await FirebaseFirestore.instance.collection('scoresheets').add({
         'participantId': participantId,
         'participantName': currentParticipant['Name'],
-        'participantPhoto':
-            participantPhoto, // Include the participant's photo URL
+        'participantPhoto': participantPhoto,
         'scores': scores[currentParticipantIndex],
         'totalScore': totalScore,
         'judgeEmail': judgeEmail,
+        'judgeId': judgeId,
         'templateCode': templateCode,
       });
+
       ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Scores saved successfully!')));
     } catch (error) {

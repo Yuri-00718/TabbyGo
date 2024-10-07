@@ -4,6 +4,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 class Result extends StatelessWidget {
+  final String eventName;
+  Result({Key? key, required this.eventName}) : super(key: key);
+
   final TextStyle goodMorningStyle = GoogleFonts.rubik(
     fontWeight: FontWeight.w500,
     fontSize: 12,
@@ -164,7 +167,7 @@ class Result extends StatelessWidget {
           child: Padding(
             padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
             child: Text(
-              'Military Parade 2024',
+              eventName, // Use the eventName variable here
               textAlign: TextAlign.center,
               style: GoogleFonts.poppins(
                 fontWeight: FontWeight.w500,
@@ -222,23 +225,52 @@ class Result extends StatelessWidget {
           );
         }
 
-        var scores = snapshot.data!.docs.map((doc) {
+        // Map to store aggregated scores by participantId
+        Map<String, Map<String, dynamic>> participantScores = {};
+        Map<String, int> judgeCounts = {};
+
+        // Loop through the Firestore data to accumulate scores for each participant
+        for (var doc in snapshot.data!.docs) {
           final data = doc.data() as Map<String, dynamic>;
-          return {
-            'name': data['participantName'] ??
-                'Unknown', // Default to 'Unknown' if null
-            'points': data['totalScore'] ?? 0, // Default to 0 if null
-            'participantPhoto': data['participantPhoto'] ??
-                '', // Default to empty string if null
-            'templateCode':
-                data['templateCode'] ?? '', // Default to empty string if null
-          };
-        }).toList();
+          String participantId = data['participantId'].toString();
+          String name = data['participantName'] ?? 'Unknown';
+          String photoUrl = data['participantPhoto'] ?? '';
+          int totalScore = data['totalScore'] ?? 0;
+
+          // Initialize or update participant score data
+          if (participantScores.containsKey(participantId)) {
+            participantScores[participantId]!['totalScore'] += totalScore;
+            judgeCounts[participantId] = judgeCounts[participantId]! + 1;
+          } else {
+            participantScores[participantId] = {
+              'name': name,
+              'totalScore': totalScore,
+              'participantPhoto': photoUrl,
+            };
+            judgeCounts[participantId] = 1;
+          }
+        }
+
+        // Calculate average score for each participant and cap it at 100 points
+        participantScores.forEach((id, data) {
+          int totalScore = data['totalScore'];
+          int judgeCount = judgeCounts[id]!;
+          double averageScore = totalScore / judgeCount;
+
+          // Ensure score does not exceed 100 points
+          data['totalScore'] =
+              (averageScore > 100) ? 100 : averageScore.round();
+        });
+
+        // Sort participants by their average score
+        var scores = participantScores.values.toList();
+        scores.sort((a, b) => b['totalScore'].compareTo(a['totalScore']));
 
         if (scores.isEmpty) {
           return const Center(child: Text("No scores available"));
         }
 
+        // Ensure the podium displays only the top 3 participants
         return Stack(
           alignment: Alignment.center,
           children: [
@@ -254,22 +286,20 @@ class Result extends StatelessWidget {
                 ),
               ),
             ),
-            _buildPodiumWinnerInfo(scores, screenHeight, screenWidth),
+            _buildPodiumWinnerInfo(
+                scores.take(3).toList(), screenHeight, screenWidth),
           ],
         );
       },
     );
   }
 
-  Widget _buildPodiumWinnerInfo(List<Map<String, dynamic>> scores,
+  Widget _buildPodiumWinnerInfo(List<Map<String, dynamic>> topScores,
       double screenHeight, double screenWidth) {
-    // Sort scores in descending order based on points
-    scores.sort((a, b) => b['points'].compareTo(a['points']));
-
     return Stack(
       alignment: Alignment.bottomCenter,
       children: [
-        if (scores.isNotEmpty && scores.length > 1)
+        if (topScores.length > 1)
           Positioned(
             bottom: screenHeight * 0.41,
             right: screenWidth * 0.64,
@@ -278,16 +308,14 @@ class Result extends StatelessWidget {
               child: Align(
                 alignment: Alignment.center,
                 child: _buildWinnerInfo(
-                  scores[1]['name'] ??
-                      'Unknown', // Default to 'Unknown' if null
-                  scores[1]['participantPhoto'] ??
-                      '', // Corrected to participantPhoto
-                  '${scores[1]['points'] ?? 0} POINTS', // Default to 0 if null
+                  topScores[1]['name'],
+                  topScores[1]['participantPhoto'],
+                  '${topScores[1]['totalScore']} POINTS',
                 ),
               ),
             ),
           ),
-        if (scores.isNotEmpty)
+        if (topScores.isNotEmpty)
           Positioned(
             bottom: screenHeight * 0.47,
             child: SizedBox(
@@ -295,15 +323,14 @@ class Result extends StatelessWidget {
               child: Align(
                 alignment: Alignment.center,
                 child: _buildWinnerInfo(
-                  scores[0]['name'] ?? 'Unknown', // First place name
-                  scores[0]['participantPhoto'] ??
-                      '', // Corrected to participantPhoto
-                  '${scores[0]['points'] ?? 0} POINTS', // First place points
+                  topScores[0]['name'],
+                  topScores[0]['participantPhoto'],
+                  '${topScores[0]['totalScore']} POINTS',
                 ),
               ),
             ),
           ),
-        if (scores.length > 2)
+        if (topScores.length > 2)
           Positioned(
             bottom: screenHeight * 0.38,
             left: screenWidth * 0.63,
@@ -312,10 +339,9 @@ class Result extends StatelessWidget {
               child: Align(
                 alignment: Alignment.center,
                 child: _buildWinnerInfo(
-                  scores[2]['name'] ?? 'Unknown', // Third place name
-                  scores[2]['participantPhoto'] ??
-                      '', // Corrected to participantPhoto
-                  '${scores[2]['points'] ?? 0} POINTS', // Third place points
+                  topScores[2]['name'],
+                  topScores[2]['participantPhoto'],
+                  '${topScores[2]['totalScore']} POINTS',
                 ),
               ),
             ),
@@ -466,14 +492,43 @@ class Result extends StatelessWidget {
           return const Center(child: CircularProgressIndicator());
         }
 
-        // Create a list of participant scores
-        var participants = snapshot.data!.docs.map((doc) {
+        // Map to store aggregated scores by participantId
+        Map<String, Map<String, dynamic>> participantScores = {};
+
+        // Loop through the Firestore data to accumulate scores for each participant
+        for (var doc in snapshot.data!.docs) {
           final data = doc.data() as Map<String, dynamic>;
+          String participantId = data['participantId'].toString();
+          String name = data['participantName'] ?? 'Unknown';
+          String photoUrl = data['participantPhoto'] ?? '';
+          int totalScore = data['totalScore'] ?? 0;
+
+          // Initialize or update participant score data
+          if (participantScores.containsKey(participantId)) {
+            participantScores[participantId]!['totalScore'] += totalScore;
+            participantScores[participantId]!['judgeCount'] += 1;
+          } else {
+            participantScores[participantId] = {
+              'name': name,
+              'totalScore': totalScore,
+              'participantPhoto': photoUrl,
+              'judgeCount': 1,
+            };
+          }
+        }
+
+        // Convert map to list and calculate average scores
+        var participants = participantScores.entries.map((entry) {
+          var data = entry.value;
+          double averageScore = data['totalScore'] / data['judgeCount'];
+
+          // Ensure score does not exceed 100 points
+          int finalScore = (averageScore > 100) ? 100 : averageScore.round();
+
           return {
-            'name': data['participantName'] ?? 'Unknown', // Participant's name
-            'totalScore': data['totalScore'] ?? 0, // Participant's score
-            'participantPhoto':
-                data['participantPhoto'] ?? '', // Participant's image URL
+            'name': data['name'],
+            'totalScore': finalScore,
+            'participantPhoto': data['participantPhoto'],
           };
         }).toList();
 
@@ -486,7 +541,9 @@ class Result extends StatelessWidget {
         }
 
         // Filter out the top 3 ranks
-        var additionalRanks = participants.sublist(3); // Get ranks 4 and above
+        var additionalRanks = participants.length > 3
+            ? participants.sublist(3) // Get ranks 4 and above
+            : [];
 
         return Column(
           children: additionalRanks.asMap().entries.map((entry) {
