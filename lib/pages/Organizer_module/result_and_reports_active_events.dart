@@ -54,6 +54,13 @@ class _ResultAndReportsActiveEventsState
       if (kDebugMode) {
         print('Error loading event data: $e');
       }
+      // Show an error message to the user
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to load events. Please try again.'),
+          duration: const Duration(seconds: 3),
+        ),
+      );
     }
   }
 

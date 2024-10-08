@@ -89,38 +89,55 @@ class _ScoresheetPageState extends State<ScoresheetPage> {
     });
   }
 
-  // Save scores and other data hehe
   void _saveSheets() async {
     final participantId = currentParticipant['id'];
     final judgeEmail = FirebaseAuth.instance.currentUser?.email;
-    final judgeId = FirebaseAuth.instance.currentUser?.uid; // Add judge ID
+    final judgeId = FirebaseAuth.instance.currentUser?.uid;
     final participantPhoto = currentParticipant['Photo'];
+    final participantName = currentParticipant['Name'];
 
     if (participantId == null || participantId <= 0) {
       _showErrorSnackBar('Invalid participant ID. Cannot save scores.');
       return;
     }
 
-    // Calculate total score
-    int totalScore =
-        scores[currentParticipantIndex].fold(0, (sum, score) => sum + score);
+    // Ensure the scores are being captured correctly
+    List<int> currentScores = scores[currentParticipantIndex];
+    print('Current Scores for Participant: $currentScores'); // Debugging line
 
-    // Check for invalid scores (e.g., negative scores)
-    if (scores[currentParticipantIndex].any((score) => score < 0)) {
+    // Calculate total score
+    int totalScore = currentScores.fold(0, (sum, score) => sum + score);
+    print('Calculated Total Score: $totalScore'); // Debugging line
+
+    if (currentScores.any((score) => score < 0)) {
       _showErrorSnackBar('Scores cannot be negative.');
       return;
     }
 
     try {
+      // Retrieve template details to get event name
+      var templateDetails =
+          await DatabaseHelper.instance.getTemplateDetails(templateCode!);
+
+      // Check if templateDetails is null and handle it
+      if (templateDetails == null) {
+        _showErrorSnackBar('Template details not found.');
+        return;
+      }
+
+      String? eventName = templateDetails[
+          'eventName']; // Ensure this matches your Firestore field name
+
       await FirebaseFirestore.instance.collection('scoresheets').add({
         'participantId': participantId,
-        'participantName': currentParticipant['Name'],
+        'participantName': participantName,
         'participantPhoto': participantPhoto,
-        'scores': scores[currentParticipantIndex],
+        'scores': currentScores, // Save the current scores here
         'totalScore': totalScore,
         'judgeEmail': judgeEmail,
         'judgeId': judgeId,
         'templateCode': templateCode,
+        'eventName': eventName,
       });
 
       ScaffoldMessenger.of(context).showSnackBar(

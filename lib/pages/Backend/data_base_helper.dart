@@ -306,7 +306,7 @@ class DatabaseHelper {
       if (snapshot.docs.isNotEmpty) {
         // Print the retrieved document for debugging
         print('Template found: ${snapshot.docs.first.data()}');
-        return snapshot.docs.first.data();
+        return snapshot.docs.first.data(); // Ensure this contains 'eventName'
       } else {
         print('No template found for code: $templateCode'); // Debugging line
       }

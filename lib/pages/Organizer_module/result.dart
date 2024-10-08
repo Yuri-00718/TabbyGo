@@ -1,11 +1,92 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:lottie/lottie.dart';
 
-class Result extends StatelessWidget {
+class Result extends StatefulWidget {
   final String eventName;
+
   Result({Key? key, required this.eventName}) : super(key: key);
+
+  @override
+  _ResultState createState() => _ResultState();
+}
+
+class _ResultState extends State<Result> {
+  bool _isLoading = true;
+  bool _showDrawer = false;
+  bool _isButtonDisabled = false;
+  final ValueNotifier<int> _remainingTime = ValueNotifier<int>(180);
+  Timer? _timer;
+
+  void _checkForUpdates() async {
+    setState(() {
+      _isLoading = true;
+      _isButtonDisabled = true;
+    });
+    try {
+      QuerySnapshot querySnapshot = await FirebaseFirestore.instance
+          .collection('scoresheets')
+          .where('eventName', isEqualTo: widget.eventName)
+          .get();
+
+      if (querySnapshot.docs.isNotEmpty) {
+        print("Scores updated successfully!");
+      } else {
+        print("No updates found for the scores.");
+      }
+    } catch (e) {
+      print("Failed to fetch updates: $e");
+    }
+    await Future.delayed(const Duration(seconds: 3));
+
+    setState(() {
+      _isLoading = false;
+    });
+    _startCooldown();
+  }
+
+  void _startCooldown() {
+    _remainingTime.value = 180;
+    _isButtonDisabled = true;
+    setState(() {});
+
+    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (_remainingTime.value <= 1) {
+        _remainingTime.value = 0;
+        _isButtonDisabled = false;
+        timer.cancel();
+        setState(() {});
+      } else {
+        _remainingTime.value--;
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    _remainingTime.dispose();
+    super.dispose();
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _simulateLoading();
+  }
+
+  void _simulateLoading() {
+    Future.delayed(const Duration(seconds: 3), () {
+      setState(() {
+        _isLoading = false;
+        _showDrawer = true;
+      });
+    });
+  }
 
   final TextStyle goodMorningStyle = GoogleFonts.rubik(
     fontWeight: FontWeight.w500,
@@ -74,7 +155,7 @@ class Result extends StatelessWidget {
               ],
             ),
           ),
-          _buildBottomDrawer(),
+          if (_showDrawer) _buildBottomDrawer(widget.eventName),
         ],
       ),
     );
@@ -167,7 +248,7 @@ class Result extends StatelessWidget {
           child: Padding(
             padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
             child: Text(
-              eventName, // Use the eventName variable here
+              widget.eventName, // Use the eventName variable here
               textAlign: TextAlign.center,
               style: GoogleFonts.poppins(
                 fontWeight: FontWeight.w500,
@@ -186,22 +267,34 @@ class Result extends StatelessWidget {
     return Align(
       alignment: Alignment.centerRight,
       child: ElevatedButton.icon(
-        onPressed: () {
-          // Add your refresh logic here
-        },
+        onPressed: _isButtonDisabled
+            ? null
+            : () {
+                setState(() {
+                  _isLoading = true; // Start loading animation
+                });
+                _checkForUpdates(); // Call the update check
+              },
         icon: const Icon(
           Icons.access_time,
           size: 20,
           color: Color(0xFF9087E5),
         ),
-        label: Text(
-          'Latest Updated \n Score',
-          textAlign: TextAlign.center,
-          style: GoogleFonts.poppins(
-            fontWeight: FontWeight.w600,
-            fontSize: 12,
-            color: const Color(0xFFFFFFFF),
-          ),
+        label: ValueListenableBuilder<int>(
+          valueListenable: _remainingTime,
+          builder: (context, remainingTime, _) {
+            return Text(
+              _isButtonDisabled
+                  ? 'Try again in ${remainingTime.toString().padLeft(2, '0')} sec'
+                  : 'Latest Updated \n Score',
+              textAlign: TextAlign.center,
+              style: GoogleFonts.poppins(
+                fontWeight: FontWeight.w600,
+                fontSize: 12,
+                color: const Color(0xFFFFFFFF),
+              ),
+            );
+          },
         ),
         style: ElevatedButton.styleFrom(
           backgroundColor: const Color(0xFF5144B6),
@@ -216,81 +309,112 @@ class Result extends StatelessWidget {
 
   Widget _buildPodiumStack(
       BuildContext context, double screenHeight, double screenWidth) {
-    return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance.collection('scoresheets').snapshots(),
-      builder: (context, snapshot) {
-        if (!snapshot.hasData) {
-          return const Center(
-            child: CircularProgressIndicator(),
-          );
-        }
-
-        // Map to store aggregated scores by participantId
-        Map<String, Map<String, dynamic>> participantScores = {};
-        Map<String, int> judgeCounts = {};
-
-        // Loop through the Firestore data to accumulate scores for each participant
-        for (var doc in snapshot.data!.docs) {
-          final data = doc.data() as Map<String, dynamic>;
-          String participantId = data['participantId'].toString();
-          String name = data['participantName'] ?? 'Unknown';
-          String photoUrl = data['participantPhoto'] ?? '';
-          int totalScore = data['totalScore'] ?? 0;
-
-          // Initialize or update participant score data
-          if (participantScores.containsKey(participantId)) {
-            participantScores[participantId]!['totalScore'] += totalScore;
-            judgeCounts[participantId] = judgeCounts[participantId]! + 1;
-          } else {
-            participantScores[participantId] = {
-              'name': name,
-              'totalScore': totalScore,
-              'participantPhoto': photoUrl,
-            };
-            judgeCounts[participantId] = 1;
-          }
-        }
-
-        // Calculate average score for each participant and cap it at 100 points
-        participantScores.forEach((id, data) {
-          int totalScore = data['totalScore'];
-          int judgeCount = judgeCounts[id]!;
-          double averageScore = totalScore / judgeCount;
-
-          // Ensure score does not exceed 100 points
-          data['totalScore'] =
-              (averageScore > 100) ? 100 : averageScore.round();
-        });
-
-        // Sort participants by their average score
-        var scores = participantScores.values.toList();
-        scores.sort((a, b) => b['totalScore'].compareTo(a['totalScore']));
-
-        if (scores.isEmpty) {
-          return const Center(child: Text("No scores available"));
-        }
-
-        // Ensure the podium displays only the top 3 participants
-        return Stack(
-          alignment: Alignment.center,
-          children: [
-            Positioned(
-              bottom: 100,
-              child: SizedBox(
-                width: screenWidth,
-                height: screenHeight * 0.40,
-                child: Image.asset(
-                  'assets/images/POLE.png',
-                  fit: BoxFit.contain,
-                  alignment: Alignment.bottomCenter,
-                ),
-              ),
+    return Stack(
+      alignment: Alignment.center,
+      children: [
+        // Show loading animation when loading
+        if (_isLoading)
+          Center(
+            child: Lottie.asset(
+              'assets/JSON/LOADING.json',
+              width: 350,
+              height: 250,
+              fit: BoxFit.fill,
             ),
-            _buildPodiumWinnerInfo(
-                scores.take(3).toList(), screenHeight, screenWidth),
-          ],
-        );
-      },
+          )
+        else
+          StreamBuilder<QuerySnapshot>(
+            stream: FirebaseFirestore.instance
+                .collection('scoresheets')
+                .where('eventName', isEqualTo: widget.eventName)
+                .snapshots(),
+            builder: (context, snapshot) {
+              // Show loading animation if data is still loading
+              if (snapshot.connectionState == ConnectionState.waiting &&
+                  !_isLoading) {
+                return Center(
+                  child: Lottie.asset(
+                    'assets/JSON/LOADING.json',
+                    width: 350,
+                    height: 250,
+                    fit: BoxFit.fill,
+                  ),
+                );
+              }
+
+              // Check if there was an error while fetching data
+              if (snapshot.hasError) {
+                return Center(
+                  child: Text("Error fetching data: ${snapshot.error}"),
+                );
+              }
+
+              // Check if there is no data available
+              if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                return const Center(
+                    child: Text("The event has not started yet"));
+              }
+
+              Map<String, Map<String, dynamic>> participantScores = {};
+              Map<String, int> judgeCounts = {};
+
+              // Process the fetched documents
+              for (var doc in snapshot.data!.docs) {
+                final data = doc.data() as Map<String, dynamic>;
+                String participantId = data['participantId'].toString();
+                String name = data['participantName'] ?? 'Unknown';
+                String photoUrl = data['participantPhoto'] ?? '';
+                int totalScore = data['totalScore'] ?? 0;
+
+                // Initialize or update participant score data
+                if (participantScores.containsKey(participantId)) {
+                  participantScores[participantId]!['totalScore'] += totalScore;
+                  judgeCounts[participantId] = judgeCounts[participantId]! + 1;
+                } else {
+                  participantScores[participantId] = {
+                    'name': name,
+                    'totalScore': totalScore,
+                    'participantPhoto': photoUrl,
+                  };
+                  judgeCounts[participantId] = 1;
+                }
+              }
+
+              // Calculate average scores
+              participantScores.forEach((id, data) {
+                int totalScore = data['totalScore'];
+                int judgeCount = judgeCounts[id]!;
+                double averageScore = totalScore / judgeCount;
+                data['totalScore'] =
+                    (averageScore > 100) ? 100 : averageScore.round();
+              });
+
+              // Prepare the scores for display
+              var scores = participantScores.values.toList();
+              scores.sort((a, b) => b['totalScore'].compareTo(a['totalScore']));
+
+              return Stack(
+                alignment: Alignment.center,
+                children: [
+                  Positioned(
+                    bottom: 100,
+                    child: SizedBox(
+                      width: screenWidth,
+                      height: screenHeight * 0.40,
+                      child: Image.asset(
+                        'assets/images/POLE.png',
+                        fit: BoxFit.contain,
+                        alignment: Alignment.bottomCenter,
+                      ),
+                    ),
+                  ),
+                  _buildPodiumWinnerInfo(
+                      scores.take(3).toList(), screenHeight, screenWidth),
+                ],
+              );
+            },
+          ),
+      ],
     );
   }
 
@@ -301,7 +425,7 @@ class Result extends StatelessWidget {
       children: [
         if (topScores.length > 1)
           Positioned(
-            bottom: screenHeight * 0.41,
+            bottom: screenHeight * 0.42,
             right: screenWidth * 0.64,
             child: SizedBox(
               width: screenWidth * 0.25,
@@ -317,7 +441,7 @@ class Result extends StatelessWidget {
           ),
         if (topScores.isNotEmpty)
           Positioned(
-            bottom: screenHeight * 0.47,
+            bottom: screenHeight * 0.46,
             child: SizedBox(
               width: screenWidth * 0.3,
               child: Align(
@@ -359,17 +483,15 @@ class Result extends StatelessWidget {
       color: const Color(0xFFFFFFFF),
     );
 
-    // Define a smaller style for points, bolded
     final TextStyle pointsStyle = GoogleFonts.poppins(
       fontWeight: FontWeight.w700,
-      fontSize: 14, // Adjust the font size for points if needed
-      color: const Color(0xFFE7E4E4), // Desired color for points
+      fontSize: 14,
+      color: const Color(0xFFE7E4E4),
     );
 
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        // Use ClipOval to create a circular image
         ClipOval(
           child: Image.network(
             photoUrl,
@@ -395,16 +517,24 @@ class Result extends StatelessWidget {
           maxLines: 1,
           style: resultsStyle,
         ),
-        Text(
-          points,
-          textAlign: TextAlign.center,
-          style: pointsStyle,
+        const SizedBox(height: 4),
+        Container(
+          padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 12),
+          decoration: BoxDecoration(
+            color: const Color(0xFF9087E5),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Text(
+            points,
+            textAlign: TextAlign.center,
+            style: pointsStyle,
+          ),
         ),
       ],
     );
   }
 
-  Widget _buildBottomDrawer() {
+  Widget _buildBottomDrawer(String eventName) {
     return DraggableScrollableSheet(
       initialChildSize: 0.2,
       minChildSize: 0.2,
@@ -426,57 +556,83 @@ class Result extends StatelessWidget {
               }
             });
 
-            return Container(
-              decoration: const BoxDecoration(
-                color: Color(0xFFEFEEFC),
-                borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-              ),
-              child: Column(
-                children: [
-                  GestureDetector(
-                    onTap: () {
-                      if (scrollController.hasClients) {
-                        double targetSize = isExpanded ? 0.2 : 0.8;
-                        scrollController.animateTo(
-                          scrollController.position.maxScrollExtent *
-                              targetSize,
-                          duration: const Duration(milliseconds: 300),
-                          curve: Curves.easeInOut,
-                        );
-                      }
-                    },
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 8),
-                      child: Transform.rotate(
-                        angle: isExpanded ? 3.14 : 0,
-                        child: Image.asset(
-                          'assets/images/Arrow_Up.png',
-                          width: 24,
-                          height: 24,
-                          color: const Color(0xFF9087E5),
-                        ),
-                      ),
-                    ),
+            return StreamBuilder<QuerySnapshot>(
+              stream: FirebaseFirestore.instance
+                  .collection('scoresheets')
+                  .snapshots(),
+              builder: (context, snapshot) {
+                if (!snapshot.hasData) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+
+                // Check if there are ranks for the current event
+                bool hasRanks = snapshot.data!.docs.any((doc) {
+                  final data = doc.data() as Map<String, dynamic>;
+                  return data['eventName'] ==
+                      eventName; // Check for the current event
+                });
+
+                // If there are no ranks, return an empty container to hide the drawer
+                if (!hasRanks) {
+                  return Container(); // Hide the drawer
+                }
+
+                // Proceed to build the drawer with ranks
+                return Container(
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFEFEEFC),
+                    borderRadius:
+                        BorderRadius.vertical(top: Radius.circular(16)),
                   ),
-                  Expanded(
-                    child: ListView(
-                      controller: scrollController,
-                      padding: const EdgeInsets.all(16),
-                      children: [
-                        Text(
-                          'Additional Ranks',
-                          style: GoogleFonts.poppins(
-                            fontWeight: FontWeight.w500,
-                            fontSize: 18,
+                  child: Column(
+                    children: [
+                      GestureDetector(
+                        onTap: () {
+                          if (scrollController.hasClients) {
+                            double targetSize = isExpanded ? 0.2 : 0.8;
+                            scrollController.animateTo(
+                              scrollController.position.maxScrollExtent *
+                                  targetSize,
+                              duration: const Duration(milliseconds: 300),
+                              curve: Curves.easeInOut,
+                            );
+                          }
+                        },
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          child: Transform.rotate(
+                            angle: isExpanded ? 3.14 : 0,
+                            child: Image.asset(
+                              'assets/images/Arrow_Up.png',
+                              width: 24,
+                              height: 24,
+                              color: const Color(0xFF9087E5),
+                            ),
                           ),
                         ),
-                        const SizedBox(height: 10),
-                        _buildRankList(),
-                      ],
-                    ),
+                      ),
+                      Expanded(
+                        child: ListView(
+                          controller: scrollController,
+                          padding: const EdgeInsets.all(16),
+                          children: [
+                            Text(
+                              'Additional Ranks',
+                              style: GoogleFonts.poppins(
+                                fontWeight: FontWeight.w500,
+                                fontSize: 18,
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+                            _buildRankList(
+                                eventName), // Pass the current event name
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
-                ],
-              ),
+                );
+              },
             );
           },
         );
@@ -484,7 +640,8 @@ class Result extends StatelessWidget {
     );
   }
 
-  Widget _buildRankList() {
+  Widget _buildRankList(String eventName) {
+    // Add eventName parameter
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance.collection('scoresheets').snapshots(),
       builder: (context, snapshot) {
@@ -498,22 +655,27 @@ class Result extends StatelessWidget {
         // Loop through the Firestore data to accumulate scores for each participant
         for (var doc in snapshot.data!.docs) {
           final data = doc.data() as Map<String, dynamic>;
-          String participantId = data['participantId'].toString();
-          String name = data['participantName'] ?? 'Unknown';
-          String photoUrl = data['participantPhoto'] ?? '';
-          int totalScore = data['totalScore'] ?? 0;
 
-          // Initialize or update participant score data
-          if (participantScores.containsKey(participantId)) {
-            participantScores[participantId]!['totalScore'] += totalScore;
-            participantScores[participantId]!['judgeCount'] += 1;
-          } else {
-            participantScores[participantId] = {
-              'name': name,
-              'totalScore': totalScore,
-              'participantPhoto': photoUrl,
-              'judgeCount': 1,
-            };
+          // Check if the event matches the current event
+          if (data['eventName'] == eventName) {
+            // Filter by event name
+            String participantId = data['participantId'].toString();
+            String name = data['participantName'] ?? 'Unknown';
+            String photoUrl = data['participantPhoto'] ?? '';
+            int totalScore = data['totalScore'] ?? 0;
+
+            // Initialize or update participant score data
+            if (participantScores.containsKey(participantId)) {
+              participantScores[participantId]!['totalScore'] += totalScore;
+              participantScores[participantId]!['judgeCount'] += 1;
+            } else {
+              participantScores[participantId] = {
+                'name': name,
+                'totalScore': totalScore,
+                'participantPhoto': photoUrl,
+                'judgeCount': 1,
+              };
+            }
           }
         }
 

@@ -41,10 +41,12 @@ dev_dependencies:
   dio: ^5.7.0
   permission_handler: ^11.3.1
   flutter_vector_icons: ^2.0.0
+  lottie: ^3.1.2
   
 flutter:
   uses-material-design: true
   assets:
+  - assets/JSON/LOADING.json
   - assets/images/text logo black.png
   - assets/images/no-photo.png
   - assets/images/text logo white.png
