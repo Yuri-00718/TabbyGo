@@ -1,5 +1,3 @@
-// ignore_for_file: depend_on_referenced_packages
-
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -25,19 +23,17 @@ class Dashboard extends StatefulWidget {
 
 class _DashboardState extends State<Dashboard> {
   int _selectedIndex = 0;
-  bool _isCodeVerified = false; // To track if the correct code has been entered
+  bool _isCodeVerified = false;
 
-  // List of pages for navigation
   final List<Widget> _pages = <Widget>[
     DashboardContent(),
-    const NotesPage(), // Notes screen
-    const ProfilePage(), // Profile screen
+    const NotesPage(),
+    const ProfilePage(),
   ];
 
   @override
   void initState() {
     super.initState();
-    // Trigger code entry dialog when dashboard loads
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _showCodeInputDialog(context);
     });
@@ -53,10 +49,8 @@ class _DashboardState extends State<Dashboard> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: _isCodeVerified
-          ? _pages[_selectedIndex] // Show content only if code is verified
-          : const Center(
-              child: CircularProgressIndicator(), // Show loader until verified
-            ),
+          ? _pages[_selectedIndex]
+          : const Center(child: CircularProgressIndicator()),
       bottomNavigationBar: _isCodeVerified
           ? BottomNavigationBar(
               currentIndex: _selectedIndex,
@@ -76,23 +70,20 @@ class _DashboardState extends State<Dashboard> {
                 ),
               ],
             )
-          : null, // Hide navigation bar until code is verified
+          : null,
     );
   }
 
   void _showCodeInputDialog(BuildContext context) {
-    // Create a list of TextEditingControllers for each input field
     final List<TextEditingController> codeControllers =
         List.generate(4, (index) => TextEditingController());
 
     showDialog(
       context: context,
-      barrierDismissible:
-          false, // Prevent closing the dialog without entering a code
+      barrierDismissible: false,
       builder: (BuildContext context) {
         return AlertDialog(
-          backgroundColor: const Color.fromARGB(255, 132, 96,
-              214), // Set a background color that matches your theme
+          backgroundColor: const Color.fromARGB(255, 132, 96, 214),
           title: Text(
             'Enter Template Code',
             style: GoogleFonts.poppins(
@@ -109,26 +100,21 @@ class _DashboardState extends State<Dashboard> {
                 children: List.generate(
                   4,
                   (index) => Padding(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 7.0), // Add horizontal spacing
+                    padding: const EdgeInsets.symmetric(horizontal: 7.0),
                     child: SizedBox(
-                      width: 50, // Adjust the width as needed
-                      height: 60, // Adjust the height to make it larger
+                      width: 50,
+                      height: 60,
                       child: TextField(
                         controller: codeControllers[index],
                         keyboardType: TextInputType.number,
-                        maxLength: 1, // Limit input to 1 digit
-                        style: GoogleFonts.poppins(
-                            color: Colors.black), // Text color for input
-                        textAlign:
-                            TextAlign.center, // Center text in the input box
+                        maxLength: 1,
+                        style: GoogleFonts.poppins(color: Colors.black),
+                        textAlign: TextAlign.center,
                         decoration: InputDecoration(
-                          hintText: '0', // Hint text as a placeholder
-                          hintStyle: GoogleFonts.poppins(
-                              color: Colors.grey), // Hint text color
+                          hintText: '0',
+                          hintStyle: GoogleFonts.poppins(color: Colors.grey),
                           filled: true,
-                          fillColor:
-                              Colors.white, // Background color of the TextField
+                          fillColor: Colors.white,
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(8),
                             borderSide:
@@ -160,7 +146,6 @@ class _DashboardState extends State<Dashboard> {
             ),
             TextButton(
               onPressed: () async {
-                // Check if the context is still mounted
                 if (!context.mounted) return;
 
                 String enteredCode =
@@ -178,7 +163,6 @@ class _DashboardState extends State<Dashboard> {
   Future<void> _validateCode(BuildContext context, String enteredCode) async {
     String trimmedEnteredCode = enteredCode.trim();
 
-    // Fetch the template code from Firestore
     String? templateCode =
         await _getTemplateCodeFromFirestore(trimmedEnteredCode);
 
@@ -191,9 +175,7 @@ class _DashboardState extends State<Dashboard> {
       return;
     }
 
-    // Validate the code
     if (templateCode == trimmedEnteredCode) {
-      // Save the code
       await DatabaseHelper.instance.saveTemplateCode(trimmedEnteredCode);
 
       setState(() {
@@ -209,32 +191,24 @@ class _DashboardState extends State<Dashboard> {
 
   Future<String?> _getTemplateCodeFromFirestore(String enteredCode) async {
     try {
-      // Query the 'templates' collection where 'templateCode' matches the entered code
       var querySnapshot = await FirebaseFirestore.instance
           .collection('templates')
           .where('templateCode', isEqualTo: enteredCode)
-          .limit(1) // Limit to 1 result since templateCode should be unique
+          .limit(1)
           .get();
 
       if (querySnapshot.docs.isNotEmpty) {
         var document = querySnapshot.docs.first;
 
-        print('Firestore Document Data: ${document.data()}');
-
-        // Check if the 'templateCode' field exists in the document
         if (document.data().containsKey('templateCode')) {
-          // Cast 'templateCode' to String and return it
           return document['templateCode'] as String?;
         } else {
-          print('templateCode field does not exist in the document');
           return null;
         }
       } else {
-        print('No document found for the entered template code');
         return null;
       }
     } catch (e) {
-      print('Error fetching template code from Firestore: $e');
       return null;
     }
   }
@@ -247,13 +221,46 @@ class DashboardContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     double screenWidth = MediaQuery.of(context).size.width;
+    double logoWidth = screenWidth * 0.38;
+    double logoHeight = screenWidth * 0.27;
 
     return Scaffold(
       backgroundColor: const Color.fromARGB(255, 213, 194, 238),
       body: Stack(
         children: [
-          Padding(
-            padding: const EdgeInsets.only(top: 130.0),
+          // Logo positioned on the left side
+          Positioned(
+            left: 16,
+            top: 30,
+            child: Container(
+              width: logoWidth,
+              height: logoHeight,
+              color: const Color.fromARGB(255, 213, 194, 238),
+              child: Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: Image.asset(
+                  'assets/images/text logo black.png',
+                  fit: BoxFit.contain,
+                ),
+              ),
+            ),
+          ),
+          // Logout icon at the top right corner
+          Positioned(
+            right: 16,
+            top: 60,
+            child: IconButton(
+              icon: const Icon(
+                Icons.logout,
+                color: Colors.black,
+                size: 20,
+              ),
+              onPressed: () => _showLogoutDialog(context),
+            ),
+          ),
+          // Main content positioned at the bottom
+          Positioned.fill(
+            top: 130.0, // Adjust this to align with the logo height
             child: Column(
               children: [
                 Expanded(
@@ -271,34 +278,6 @@ class DashboardContent extends StatelessWidget {
                   ),
                 ),
               ],
-            ),
-          ),
-          Positioned(
-            left: 16,
-            top: 30,
-            child: Container(
-              width: screenWidth * 0.38,
-              height: screenWidth * 0.27,
-              color: const Color.fromARGB(255, 213, 194, 238),
-              child: Padding(
-                padding: const EdgeInsets.all(8.0),
-                child: Image.asset(
-                  'assets/images/text logo black.png',
-                  fit: BoxFit.contain,
-                ),
-              ),
-            ),
-          ),
-          Positioned(
-            right: 200,
-            top: 60, // Adjust the top position as needed
-            child: IconButton(
-              icon: const Icon(
-                Icons.logout,
-                color: Colors.black,
-                size: 20,
-              ),
-              onPressed: () => _showLogoutDialog(context), // Show logout dialog
             ),
           ),
         ],
@@ -350,7 +329,6 @@ class DashboardContent extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: () {
-          // Navigate directly to ScoresheetPage
           Navigator.push(
             context,
             MaterialPageRoute(builder: (context) => const ScoresheetPage()),
@@ -361,30 +339,23 @@ class DashboardContent extends StatelessWidget {
           width: 350,
           height: 40,
           decoration: ShapeDecoration(
-            color: const Color(0xFF6A5AE0),
+            color: const Color(0xFF6A0BC4),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(10),
             ),
-            shadows: const [
-              BoxShadow(
-                color: Color(0x3F000000),
-                blurRadius: 4,
-                offset: Offset(0, 4),
-                spreadRadius: 0,
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                'Start Judging',
+                style: GoogleFonts.poppins(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 20,
+                  color: Colors.white,
+                ),
               ),
             ],
-          ),
-          child: const Center(
-            child: Text(
-              'Start Judging Now',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 16,
-                fontFamily: 'Rubik',
-                fontWeight: FontWeight.w500,
-              ),
-            ),
           ),
         ),
       ),
@@ -399,6 +370,7 @@ class EventInfo extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: [
+        const SizedBox(height: 60),
         _buildInfoCard(
           context,
           title: 'EVENT INFORMATION',

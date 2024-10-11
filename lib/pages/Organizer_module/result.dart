@@ -27,6 +27,7 @@ class _ResultState extends State<Result> {
       _isLoading = true;
       _isButtonDisabled = true;
     });
+
     try {
       QuerySnapshot querySnapshot = await FirebaseFirestore.instance
           .collection('scoresheets')
@@ -41,20 +42,34 @@ class _ResultState extends State<Result> {
     } catch (e) {
       print("Failed to fetch updates: $e");
     }
+
     await Future.delayed(const Duration(seconds: 3));
 
-    setState(() {
-      _isLoading = false;
-    });
+    // Stop loading animation and start cooldown
+    if (mounted) {
+      setState(() {
+        _isLoading = false;
+      });
+    }
+
     _startCooldown();
   }
 
   void _startCooldown() {
     _remainingTime.value = 180;
     _isButtonDisabled = true;
-    setState(() {});
 
+    if (mounted) {
+      setState(() {});
+    }
+
+    _timer?.cancel();
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+
       if (_remainingTime.value <= 1) {
         _remainingTime.value = 0;
         _isButtonDisabled = false;
@@ -68,7 +83,7 @@ class _ResultState extends State<Result> {
 
   @override
   void dispose() {
-    _timer?.cancel();
+    _timer?.cancel(); // Ensure the timer is canceled when disposing
     _remainingTime.dispose();
     super.dispose();
   }
@@ -182,7 +197,7 @@ class _ResultState extends State<Result> {
               ],
             ),
           ),
-          Text('Administrator', style: adminStyle),
+          Text('ORGANIZER', style: adminStyle),
         ],
       ),
     );

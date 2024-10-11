@@ -349,7 +349,7 @@ class _TemplateMenusState extends State<TemplateMenus> {
             ),
           ),
           Text(
-            'Administrator',
+            'ORGANIZER',
             style: GoogleFonts.getFont(
               'Rubik',
               fontWeight: FontWeight.w500,

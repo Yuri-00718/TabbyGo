@@ -179,7 +179,7 @@ class _UserManagementState extends State<UserManagement> {
               ),
             ),
             Text(
-              'Administrator',
+              'ORGANIZER',
               style: GoogleFonts.rubik(
                 fontWeight: FontWeight.w500,
                 fontSize: 24,

@@ -571,7 +571,7 @@ class _TemplateCreationState extends State<TemplateCreation> {
           ),
           const SizedBox(height: 4),
           Text(
-            'Administrator',
+            'ORGANIZER',
             style: GoogleFonts.rubik(
               fontWeight: FontWeight.w500,
               fontSize: 24,

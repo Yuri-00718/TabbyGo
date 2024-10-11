@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:tabby/pages/User_Login_Auth/user_auth.dart'; // Import AuthenticationScreen
-import 'package:tabby/pages/User_Login_Auth/regis_user.dart'; // Import RegistrationScreen
+import 'package:tabby/pages/User_Login_Auth/user_auth.dart';
+import 'package:tabby/pages/User_Login_Auth/regis_user.dart';
 
 class UserSignUpLoginScreen extends StatelessWidget {
   final String role;
@@ -10,21 +10,23 @@ class UserSignUpLoginScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Override the role display as "Organizer" if "Admin" is chosen
+    final String displayRole =
+        role.toLowerCase() == 'admin' ? 'Organizer' : role;
+
     return Scaffold(
       body: Stack(
         children: [
-          // Background color
           Container(
-            color: const Color(0xFF6A5AE0), // Background color
+            color: const Color(0xFF6A5AE0),
             height: MediaQuery.of(context).size.height,
           ),
           Align(
             alignment: Alignment.topCenter,
             child: Container(
-              height: MediaQuery.of(context).size.height *
-                  0.9, // Adjust height as needed
+              height: MediaQuery.of(context).size.height * 0.9,
               decoration: const BoxDecoration(
-                color: Colors.white, // Container color
+                color: Colors.white,
                 borderRadius: BorderRadius.only(
                   bottomLeft: Radius.circular(30),
                   bottomRight: Radius.circular(30),
@@ -44,7 +46,7 @@ class UserSignUpLoginScreen extends StatelessWidget {
                           },
                           child: ColorFiltered(
                             colorFilter: const ColorFilter.mode(
-                              Color(0xFF6A5AE0), // Arrow color
+                              Color(0xFF6A5AE0),
                               BlendMode.srcIn,
                             ),
                             child: Image.asset(
@@ -56,7 +58,7 @@ class UserSignUpLoginScreen extends StatelessWidget {
                         ),
                         const SizedBox(width: 10),
                         Text(
-                          'Welcome $role!',
+                          'Welcome $displayRole!',
                           style: GoogleFonts.poppins(
                             color: const Color(0xFF6A5AE0),
                             fontSize: 28,
@@ -89,15 +91,14 @@ class UserSignUpLoginScreen extends StatelessWidget {
                             context,
                             MaterialPageRoute(
                               builder: (context) => AuthenticationScreen(
-                                role: role,
+                                role: displayRole,
                                 isSignUp: false,
                               ),
                             ),
                           );
                         },
                         style: ElevatedButton.styleFrom(
-                          backgroundColor:
-                              const Color(0xFF6A5AE0), // Button color
+                          backgroundColor: const Color(0xFF6A5AE0),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(20),
                           ),
@@ -105,7 +106,7 @@ class UserSignUpLoginScreen extends StatelessWidget {
                               horizontal: 40, vertical: 15),
                         ),
                         child: Text(
-                          'Login as $role',
+                          'Login as $displayRole',
                           style: GoogleFonts.poppins(
                             fontSize: 18,
                             fontWeight: FontWeight.w600,
@@ -122,7 +123,7 @@ class UserSignUpLoginScreen extends StatelessWidget {
                             context,
                             MaterialPageRoute(
                               builder: (context) => RegistrationScreen(
-                                role: role,
+                                role: displayRole,
                               ),
                             ),
                           );
@@ -136,7 +137,7 @@ class UserSignUpLoginScreen extends StatelessWidget {
                               horizontal: 40, vertical: 15),
                         ),
                         child: Text(
-                          'Register as $role',
+                          'Register as $displayRole',
                           style: GoogleFonts.poppins(
                             fontSize: 18,
                             fontWeight: FontWeight.w600,

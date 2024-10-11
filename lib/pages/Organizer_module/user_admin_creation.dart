@@ -188,7 +188,7 @@ class _AdminCreationState extends State<AdminCreation> {
               ),
             ),
             Text(
-              'Administrator',
+              'ORGANIZER',
               style: GoogleFonts.rubik(
                 fontWeight: FontWeight.w500,
                 fontSize: 24,

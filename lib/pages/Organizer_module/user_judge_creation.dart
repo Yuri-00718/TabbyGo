@@ -224,7 +224,7 @@ class _JudgeCreationState extends State<JudgeCreation> {
               ),
             ),
             Text(
-              'Administrator',
+              'ORGANIZER',
               style: GoogleFonts.getFont(
                 'Rubik',
                 fontWeight: FontWeight.w500,

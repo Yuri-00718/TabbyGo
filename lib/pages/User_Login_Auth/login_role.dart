@@ -48,7 +48,7 @@ class LoginRoleSelection extends StatelessWidget {
             const SizedBox(height: 20),
             _buildRoleButton(
               context,
-              'Admin',
+              'Organizer',
               'assets/images/admin.jpg',
               onTap: () {
                 Navigator.push(
@@ -56,21 +56,6 @@ class LoginRoleSelection extends StatelessWidget {
                   MaterialPageRoute(
                     builder: (context) =>
                         const UserSignUpLoginScreen(role: 'Admin'),
-                  ),
-                );
-              },
-            ),
-            const SizedBox(height: 20),
-            _buildRoleButton(
-              context,
-              'Organizer',
-              'assets/images/Organizer.jpg',
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) =>
-                        const UserSignUpLoginScreen(role: 'Organizer'),
                   ),
                 );
               },

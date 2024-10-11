@@ -211,7 +211,7 @@ class _DashBoardState extends State<DashBoard> {
             Row(
               children: [
                 Text(
-                  'Administrator',
+                  'ORGANIZER',
                   style: GoogleFonts.getFont(
                     'Poppins',
                     fontWeight: FontWeight.w500,
