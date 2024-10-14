@@ -6,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:tabby/pages/Backend/data_base_helper.dart';
 import 'package:image_picker/image_picker.dart';
+import 'dart:math';
 
 class JudgeCreation extends StatefulWidget {
   final String role;
@@ -27,10 +28,11 @@ class _JudgeCreationState extends State<JudgeCreation> {
   final _nameController = TextEditingController();
   final _usernameController = TextEditingController();
   final _passwordController = TextEditingController();
-  final _confirmPasswordController = TextEditingController();
+  // final _confirmPasswordController = TextEditingController();
+  String _generatedPassword = '';
 
-  bool _isPasswordVisible = false;
-  bool _isConfirmPasswordVisible = false;
+  // bool _isPasswordVisible = false;
+  // bool _isConfirmPasswordVisible = false;
 
   String? _selectedTemplate;
   List<String> _templates = [];
@@ -63,8 +65,8 @@ class _JudgeCreationState extends State<JudgeCreation> {
     final judge = widget.judge;
     _nameController.text = judge['name'] ?? '';
     _usernameController.text = judge['username'] ?? '';
-    _passwordController.text = judge['password'] ?? '';
-    _confirmPasswordController.text = judge['password'] ?? '';
+    // _passwordController.text = judge['password'] ?? '';
+    // _confirmPasswordController.text = judge['password'] ?? '';
     _selectedRole = judge['role'];
 
     // Set default template if not available in the list
@@ -89,11 +91,26 @@ class _JudgeCreationState extends State<JudgeCreation> {
     }
   }
 
+  // Generate random 6-digit password
+  String _generateRandomPassword() {
+    final random = Random();
+    const chars = '0123456789';
+    return List.generate(6, (index) => chars[random.nextInt(chars.length)])
+        .join();
+  }
+
+  void _generatePassword() {
+    setState(() {
+      _generatedPassword = _generateRandomPassword();
+      _passwordController.text = _generatedPassword;
+    });
+  }
+
   Future<void> _submitForm() async {
     if (_formKey.currentState?.validate() ?? false) {
       final name = _nameController.text;
       final username = _usernameController.text;
-      final password = _passwordController.text;
+      final password = _generatedPassword; // Use generated password
       final role = _selectedRole;
       final template = _selectedTemplate;
 
@@ -343,71 +360,32 @@ class _JudgeCreationState extends State<JudgeCreation> {
               },
             ),
             const SizedBox(height: 16),
-            TextFormField(
-              controller: _passwordController,
-              obscureText: !_isPasswordVisible,
-              decoration: InputDecoration(
-                labelText: 'Password',
-                labelStyle: GoogleFonts.poppins(color: Colors.black),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                suffixIcon: IconButton(
-                  icon: Icon(
-                    _isPasswordVisible
-                        ? Icons.visibility
-                        : Icons.visibility_off,
-                    color: Colors.grey,
+            Center(
+              child: ElevatedButton(
+                onPressed: _generatePassword,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.blue,
+                  padding: const EdgeInsets.symmetric(horizontal: 50),
+                  textStyle: GoogleFonts.poppins(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
                   ),
-                  onPressed: () {
-                    setState(() {
-                      _isPasswordVisible = !_isPasswordVisible;
-                    });
-                  },
                 ),
+                child: const Text('Generate Password'),
               ),
-              style: GoogleFonts.poppins(color: Colors.black),
-              validator: (value) {
-                if (value == null || value.isEmpty) {
-                  return 'Please enter password';
-                }
-                return null;
-              },
             ),
             const SizedBox(height: 16),
             TextFormField(
-              controller: _confirmPasswordController,
-              obscureText: !_isConfirmPasswordVisible,
+              controller: _passwordController,
+              enabled: false,
               decoration: InputDecoration(
-                labelText: 'Confirm Password',
+                labelText: 'Generated Password',
                 labelStyle: GoogleFonts.poppins(color: Colors.black),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
-                suffixIcon: IconButton(
-                  icon: Icon(
-                    _isConfirmPasswordVisible
-                        ? Icons.visibility
-                        : Icons.visibility_off,
-                    color: Colors.grey,
-                  ),
-                  onPressed: () {
-                    setState(() {
-                      _isConfirmPasswordVisible = !_isConfirmPasswordVisible;
-                    });
-                  },
-                ),
               ),
               style: GoogleFonts.poppins(color: Colors.black),
-              validator: (value) {
-                if (value == null || value.isEmpty) {
-                  return 'Please confirm password';
-                }
-                if (value != _passwordController.text) {
-                  return 'Passwords do not match';
-                }
-                return null;
-              },
             ),
             const SizedBox(height: 16),
             DropdownButtonFormField<String>(
