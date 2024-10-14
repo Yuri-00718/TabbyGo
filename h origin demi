@@ -1,0 +1,101 @@
+[33mcommit a952b7fdf8023bcd552cff595e8f23a4b965bfe9[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mdemi[m[33m)[m
+Author: dimmie luces <dluces@gbox.adnu.edu.ph>
+Date:   Mon Oct 14 23:46:46 2024 +0800
+
+    Generated Password for Judge creation in organizer module
+
+[33mcommit bc5ced943af0c810eb3e014e60ec24f0d9f987ab[m[33m ([m[1;31morigin/JLA-branch[m[33m, [m[1;32mJLA-branch[m[33m)[m
+Author: Yuri-00718 <jlagapito@gbox.adnu.edu.ph>
+Date:   Fri Oct 11 14:05:31 2024 +0800
+
+    UPDATED REPO
+
+[33mcommit 294b511c7eff15aba430675249b39268eab14b7e[m
+Author: Yuri-00718 <jlagapito@gbox.adnu.edu.ph>
+Date:   Tue Oct 8 13:39:54 2024 +0800
+
+    optimizing result module
+
+[33mcommit c69d9d01b286c8350d1d8ef3f903dc6fbb31d100[m
+Author: Yuri-00718 <jlagapito@gbox.adnu.edu.ph>
+Date:   Mon Oct 7 15:16:48 2024 +0800
+
+    Optimizing result module
+
+[33mcommit 541eb54bd59396c9a06d1c96005bd9f1d86cd6f1[m
+Author: Yuri-00718 <jlagapito@gbox.adnu.edu.ph>
+Date:   Sat Oct 5 19:19:18 2024 +0800
+
+    Implementing Communication module  Between Judges and Admin
+
+[33mcommit f70c89c9e7ba3009c4cb2958b4736ad529752df2[m
+Author: Yuri-00718 <jlagapito@gbox.adnu.edu.ph>
+Date:   Fri Oct 4 19:32:30 2024 +0800
+
+    Pulling Scores and Tabulate then Display it in Result Module
+
+[33mcommit 5cc1133b69f2cf3f5aca2638c8efebb09232928c[m
+Author: Yuri-00718 <jlagapito@gbox.adnu.edu.ph>
+Date:   Tue Oct 1 18:12:13 2024 +0800
+
+    scoresheet input field optimized
+
+[33mcommit 9012c645046e7c98312f9e0c31e5dd3c52c8a500[m
+Author: Yuri-00718 <jlagapito@gbox.adnu.edu.ph>
+Date:   Mon Sep 30 23:19:30 2024 +0800
+
+    Code Merge with Dimmie
+
+[33mcommit fd12260d9b44775f6ff1a15173f4c0ffd920d099[m
+Author: Yuri-00718 <jlagapito@gbox.adnu.edu.ph>
+Date:   Tue Sep 24 19:25:22 2024 +0800
+
+    Adding EventMechanics to the form
+
+[33mcommit f8294b44060db0c1b113f94d3fa764ebaab47758[m
+Author: Yuri-00718 <jlagapito@gbox.adnu.edu.ph>
+Date:   Mon Sep 23 22:33:57 2024 +0800
+
+    Updated multiple modules including Chat_Module, database helper, and other files
+
+[33mcommit 056401db33a1dc85a0a8dc2298ada721e9dc8cd4[m
+Author: Yuri-00718 <jlagapito@gbox.adnu.edu.ph>
+Date:   Thu Sep 19 16:29:01 2024 +0800
+
+    Temlplate Code Function & Organizing Modules
+
+[33mcommit 464891a055825ab2420a5a30d42dd054b700ec52[m
+Author: Yuri-00718 <jlagapito@gbox.adnu.edu.ph>
+Date:   Sun Sep 15 20:56:36 2024 +0800
+
+    Google Sign-in Method (Implemented)
+
+[33mcommit 453b1f009d9058e7ae2aed4aefd3c110cb936b01[m
+Author: Yuri-00718 <jlagapito@gbox.adnu.edu.ph>
+Date:   Sun Sep 15 13:16:01 2024 +0800
+
+    Improving UI login forms and role selections
+
+[33mcommit e09933b22e0263ce2ab8bed213ecb729794450f5[m
+Author: Yuri-00718 <jlagapito@gbox.adnu.edu.ph>
+Date:   Fri Sep 13 21:57:56 2024 +0800
+
+    Optimizing Firebase Sync (store & retrieve) as well as imporving UI of Role Selection
+
+[33mcommit ee0e19d4dc8d72fe0023a57b7579ca268ec6d3d5[m
+Author: Yuri-00718 <jlagapito@gbox.adnu.edu.ph>
+Date:   Thu Sep 12 11:25:20 2024 +0800
+
+    implemented firebase auth and network connectivity status
+
+[33mcommit 33c73bbd022b391ab787be661f2c776ec0ee01bb[m
+Author: Yuri-00718 <jlagapito@gbox.adnu.edu.ph>
+Date:   Fri Sep 6 19:04:28 2024 +0800
+
+    Updated dashboard, database helper, and added user creation modules
+
+[33mcommit 2827931c84223050367939fbc9f5934ab48c13c7[m
+Author: Yuri-00718 <jlagapito@gbox.adnu.edu.ph>
+Date:   Mon Aug 26 09:49:44 2024 +0800
+
+    Intial Admin Code
