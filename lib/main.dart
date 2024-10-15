@@ -41,7 +41,7 @@ class MyApp extends StatelessWidget {
         // Organizer Routes
         '/role': (context) => const LoginRoleSelection(),
         '/dashBoard': (context) => const DashBoard(),
-        '/Result': (context) => Result(
+        '/Result': (context) => const Result(
               eventName: '',
             ),
         '/resultAndReportsActiveEvents': (context) =>

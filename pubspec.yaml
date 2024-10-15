@@ -42,12 +42,15 @@ dev_dependencies:
   permission_handler: ^11.3.1
   flutter_vector_icons: ^2.0.0
   lottie: ^3.1.2
+  syncfusion_flutter_charts: ^27.1.53
   
 flutter:
   uses-material-design: true
   assets:
   - assets/JSON/LOADING.json
   - assets/images/text logo black.png
+  - assets/images/Filter.png
+  - assets/images/refresh_result.png
   - assets/images/no-photo.png
   - assets/images/text logo white.png
   - assets/images/app logo.png  

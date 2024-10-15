@@ -1,15 +1,17 @@
+// ignore_for_file: depend_on_referenced_packages, library_private_types_in_public_api, use_super_parameters
 import 'dart:async';
-
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:tabby/pages/Organizer_Module/tabulation_module.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:lottie/lottie.dart';
 
 class Result extends StatefulWidget {
   final String eventName;
 
-  Result({Key? key, required this.eventName}) : super(key: key);
+  const Result({Key? key, required this.eventName}) : super(key: key);
 
   @override
   _ResultState createState() => _ResultState();
@@ -18,14 +20,11 @@ class Result extends StatefulWidget {
 class _ResultState extends State<Result> {
   bool _isLoading = true;
   bool _showDrawer = false;
-  bool _isButtonDisabled = false;
-  final ValueNotifier<int> _remainingTime = ValueNotifier<int>(180);
-  Timer? _timer;
+  String? _selectedCategory;
 
   void _checkForUpdates() async {
     setState(() {
       _isLoading = true;
-      _isButtonDisabled = true;
     });
 
     try {
@@ -35,56 +34,31 @@ class _ResultState extends State<Result> {
           .get();
 
       if (querySnapshot.docs.isNotEmpty) {
-        print("Scores updated successfully!");
+        if (kDebugMode) {
+          print("Scores updated successfully!");
+        }
       } else {
-        print("No updates found for the scores.");
+        if (kDebugMode) {
+          print("No updates found for the scores.");
+        }
       }
     } catch (e) {
-      print("Failed to fetch updates: $e");
+      if (kDebugMode) {
+        print("Failed to fetch updates: $e");
+      }
     }
 
+//animation of loading
     await Future.delayed(const Duration(seconds: 3));
-
-    // Stop loading animation and start cooldown
     if (mounted) {
       setState(() {
         _isLoading = false;
       });
     }
-
-    _startCooldown();
-  }
-
-  void _startCooldown() {
-    _remainingTime.value = 180;
-    _isButtonDisabled = true;
-
-    if (mounted) {
-      setState(() {});
-    }
-
-    _timer?.cancel();
-    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (!mounted) {
-        timer.cancel();
-        return;
-      }
-
-      if (_remainingTime.value <= 1) {
-        _remainingTime.value = 0;
-        _isButtonDisabled = false;
-        timer.cancel();
-        setState(() {});
-      } else {
-        _remainingTime.value--;
-      }
-    });
   }
 
   @override
   void dispose() {
-    _timer?.cancel(); // Ensure the timer is canceled when disposing
-    _remainingTime.dispose();
     super.dispose();
   }
 
@@ -163,14 +137,14 @@ class _ResultState extends State<Result> {
                 _buildHeader(),
                 _buildResultsSection(context),
                 _buildEventContainer(context),
-                _buildSynchronizedButton(context),
                 Expanded(
                   child: _buildPodiumStack(context, screenHeight, screenWidth),
                 ),
               ],
             ),
           ),
-          if (_showDrawer) _buildBottomDrawer(widget.eventName),
+          if (_showDrawer)
+            _buildBottomDrawer(widget.eventName, _selectedCategory),
         ],
       ),
     );
@@ -223,25 +197,62 @@ class _ResultState extends State<Result> {
               ],
             ),
           ),
-          Container(
-            decoration: BoxDecoration(
-              color: const Color(0xFF5144B6),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              child: Row(
-                children: [
-                  SizedBox(
-                    width: 20.7,
-                    height: 19,
-                    child: SvgPicture.asset('assets/vectors/vector_1_x2.svg'),
+          Row(
+            children: [
+              ElevatedButton(
+                onPressed: () {
+                  setState(() {
+                    _isLoading = true;
+                  });
+                  _checkForUpdates();
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF5144B6),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
                   ),
-                  const SizedBox(width: 4.1),
-                  Text('EXPORT', style: exportStyle),
-                ],
+                  padding: const EdgeInsets.all(9),
+                ),
+                child: Image.asset(
+                  'assets/images/refresh_result.png',
+                  width: 20,
+                  height: 20,
+                ),
               ),
-            ),
+              const SizedBox(width: 8),
+              GestureDetector(
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => TabulationModule(
+                        eventName:
+                            widget.eventName), // Ensure eventName is passed
+                  ),
+                ),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF5144B6),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Padding(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    child: Row(
+                      children: [
+                        SizedBox(
+                          width: 20.7,
+                          height: 20,
+                          child: SvgPicture.asset(
+                              'assets/vectors/vector_1_x2.svg'),
+                        ),
+                        const SizedBox(width: 4.1),
+                        Text('Tabulation', style: exportStyle),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -250,27 +261,92 @@ class _ResultState extends State<Result> {
 
   Widget _buildEventContainer(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(22, 0, 22, 10),
+      padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 1),
       child: Center(
         child: Container(
           constraints: BoxConstraints(
-            maxWidth: MediaQuery.of(context).size.width * 0.9,
+            maxWidth: MediaQuery.of(context).size.width * 0.85,
           ),
           decoration: BoxDecoration(
             color: const Color(0xFF9087E5),
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.2),
+                blurRadius: 10,
+                offset: const Offset(0, 5),
+              ),
+            ],
           ),
           child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
-            child: Text(
-              widget.eventName, // Use the eventName variable here
-              textAlign: TextAlign.center,
-              style: GoogleFonts.poppins(
-                fontWeight: FontWeight.w500,
-                fontSize: 20,
-                height: 1.4,
-                color: const Color(0xFFFFFFFF),
-              ),
+            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 10),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  widget.eventName,
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.poppins(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 22,
+                    height: 1.2,
+                    color: const Color(0xFFFFFFFF),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                StreamBuilder<QuerySnapshot>(
+                  stream: FirebaseFirestore.instance
+                      .collection('categoryScores')
+                      .snapshots(),
+                  builder: (context, snapshot) {
+                    if (!snapshot.hasData) {
+                      return const CircularProgressIndicator();
+                    }
+
+                    Set<String> categoryNames = {'Main Criteria'};
+                    for (var doc in snapshot.data!.docs) {
+                      var data = doc.data() as Map<String, dynamic>;
+                      var categoryName = data['categoryName'] as String?;
+                      if (categoryName != null) {
+                        categoryNames.add(categoryName);
+                      }
+                    }
+
+                    var uniqueCategoryList = categoryNames.toList()..sort();
+
+                    return Container(
+                      alignment: Alignment.center,
+                      child: DropdownButton<String>(
+                        hint: const Text("Select a Category"),
+                        value: _selectedCategory,
+                        items: uniqueCategoryList.map((String category) {
+                          return DropdownMenuItem<String>(
+                            value: category,
+                            child: Center(child: Text(category)),
+                          );
+                        }).toList(),
+                        onChanged: (String? selectedCategory) {
+                          setState(() {
+                            _selectedCategory = selectedCategory;
+                          });
+                          // Notify the drawer to refresh ranks
+                          _refreshDrawerRanks();
+                        },
+                        isExpanded: true,
+                        dropdownColor: const Color(0xFF9087E5),
+                        icon: Image.asset(
+                          'assets/images/Filter.png',
+                          height: 24,
+                          width: 24,
+                          color: Colors.white,
+                        ),
+                        iconEnabledColor: Colors.white,
+                      ),
+                    );
+                  },
+                ),
+                const SizedBox(height: 12),
+              ],
             ),
           ),
         ),
@@ -278,48 +354,9 @@ class _ResultState extends State<Result> {
     );
   }
 
-  Widget _buildSynchronizedButton(BuildContext context) {
-    return Align(
-      alignment: Alignment.centerRight,
-      child: ElevatedButton.icon(
-        onPressed: _isButtonDisabled
-            ? null
-            : () {
-                setState(() {
-                  _isLoading = true; // Start loading animation
-                });
-                _checkForUpdates(); // Call the update check
-              },
-        icon: const Icon(
-          Icons.access_time,
-          size: 20,
-          color: Color(0xFF9087E5),
-        ),
-        label: ValueListenableBuilder<int>(
-          valueListenable: _remainingTime,
-          builder: (context, remainingTime, _) {
-            return Text(
-              _isButtonDisabled
-                  ? 'Try again in ${remainingTime.toString().padLeft(2, '0')} sec'
-                  : 'Latest Updated \n Score',
-              textAlign: TextAlign.center,
-              style: GoogleFonts.poppins(
-                fontWeight: FontWeight.w600,
-                fontSize: 12,
-                color: const Color(0xFFFFFFFF),
-              ),
-            );
-          },
-        ),
-        style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFF5144B6),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
-          ),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        ),
-      ),
-    );
+// Add a method to notify the drawer to refresh ranks
+  void _refreshDrawerRanks() {
+    setState(() {});
   }
 
   Widget _buildPodiumStack(
@@ -327,7 +364,6 @@ class _ResultState extends State<Result> {
     return Stack(
       alignment: Alignment.center,
       children: [
-        // Show loading animation when loading
         if (_isLoading)
           Center(
             child: Lottie.asset(
@@ -343,9 +379,8 @@ class _ResultState extends State<Result> {
                 .collection('scoresheets')
                 .where('eventName', isEqualTo: widget.eventName)
                 .snapshots(),
-            builder: (context, snapshot) {
-              // Show loading animation if data is still loading
-              if (snapshot.connectionState == ConnectionState.waiting &&
+            builder: (context, overallSnapshot) {
+              if (overallSnapshot.connectionState == ConnectionState.waiting &&
                   !_isLoading) {
                 return Center(
                   child: Lottie.asset(
@@ -357,76 +392,168 @@ class _ResultState extends State<Result> {
                 );
               }
 
-              // Check if there was an error while fetching data
-              if (snapshot.hasError) {
+              if (overallSnapshot.hasError) {
                 return Center(
-                  child: Text("Error fetching data: ${snapshot.error}"),
+                  child: Text("Error fetching data: ${overallSnapshot.error}"),
                 );
               }
 
-              // Check if there is no data available
-              if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+              if (!overallSnapshot.hasData ||
+                  overallSnapshot.data!.docs.isEmpty) {
                 return const Center(
-                    child: Text("The event has not started yet"));
+                    child: Text("No overall scores found for the event"));
               }
 
+              // Collecting participant scores from scoresheets
               Map<String, Map<String, dynamic>> participantScores = {};
-              Map<String, int> judgeCounts = {};
-
-              // Process the fetched documents
-              for (var doc in snapshot.data!.docs) {
+              for (var doc in overallSnapshot.data!.docs) {
                 final data = doc.data() as Map<String, dynamic>;
                 String participantId = data['participantId'].toString();
                 String name = data['participantName'] ?? 'Unknown';
                 String photoUrl = data['participantPhoto'] ?? '';
                 int totalScore = data['totalScore'] ?? 0;
 
-                // Initialize or update participant score data
-                if (participantScores.containsKey(participantId)) {
-                  participantScores[participantId]!['totalScore'] += totalScore;
-                  judgeCounts[participantId] = judgeCounts[participantId]! + 1;
-                } else {
+                // Initialize participant data if not already present
+                if (!participantScores.containsKey(participantId)) {
                   participantScores[participantId] = {
                     'name': name,
-                    'totalScore': totalScore,
+                    'totalScore': 0,
                     'participantPhoto': photoUrl,
+                    'judgeCount': 0, // Initialize judge count
                   };
-                  judgeCounts[participantId] = 1;
                 }
+
+                // Accumulate scores and increment judge count
+                participantScores[participantId]!['totalScore'] += totalScore;
+                participantScores[participantId]!['judgeCount'] +=
+                    1; // Count the judges
               }
 
-              // Calculate average scores
-              participantScores.forEach((id, data) {
-                int totalScore = data['totalScore'];
-                int judgeCount = judgeCounts[id]!;
-                double averageScore = totalScore / judgeCount;
-                data['totalScore'] =
-                    (averageScore > 100) ? 100 : averageScore.round();
+              // Average scores based on the number of judges
+              participantScores.forEach((participantId, scoreData) {
+                int judgeCount =
+                    scoreData['judgeCount'] ?? 1; // Avoid division by zero
+                scoreData['totalScore'] =
+                    (scoreData['totalScore'] ~/ judgeCount).clamp(
+                        0, 100); // Average score as an integer and cap at 100
               });
 
-              // Prepare the scores for display
-              var scores = participantScores.values.toList();
-              scores.sort((a, b) => b['totalScore'].compareTo(a['totalScore']));
+              // Check if a category is selected
+              if (_selectedCategory != null) {
+                // Fetch category scores only when a specific category is selected
+                if (_selectedCategory != 'Main Criteria') {
+                  return StreamBuilder<QuerySnapshot>(
+                    stream: FirebaseFirestore.instance
+                        .collection('categoryScores')
+                        .where('categoryName', isEqualTo: _selectedCategory)
+                        .snapshots(),
+                    builder: (context, categorySnapshot) {
+                      if (categorySnapshot.connectionState ==
+                          ConnectionState.waiting) {
+                        return Center(
+                          child: Lottie.asset(
+                            'assets/JSON/LOADING.json',
+                            width: 350,
+                            height: 250,
+                            fit: BoxFit.fill,
+                          ),
+                        );
+                      }
 
-              return Stack(
-                alignment: Alignment.center,
-                children: [
-                  Positioned(
-                    bottom: 100,
-                    child: SizedBox(
-                      width: screenWidth,
-                      height: screenHeight * 0.40,
-                      child: Image.asset(
-                        'assets/images/POLE.png',
-                        fit: BoxFit.contain,
-                        alignment: Alignment.bottomCenter,
+                      if (categorySnapshot.hasError) {
+                        return Center(
+                          child: Text(
+                              "Error fetching category scores: ${categorySnapshot.error}"),
+                        );
+                      }
+
+                      // Collecting participant scores from categoryScores
+                      for (var doc in categorySnapshot.data!.docs) {
+                        final data = doc.data() as Map<String, dynamic>;
+                        String participantId = data['participantId'].toString();
+                        String name = data['participantName'] ?? 'Unknown';
+                        String photoUrl = data['participantPhoto'] ?? '';
+                        int totalCategoryScore =
+                            data['totalCategoryScore'] ?? 0;
+
+                        // Update participant scores for the selected category
+                        if (participantScores.containsKey(participantId)) {
+                          participantScores[participantId]!['totalScore'] =
+                              totalCategoryScore; // Update to category score
+                          participantScores[participantId]!['source'] =
+                              'categoryScores';
+                        } else {
+                          participantScores[participantId] = {
+                            'name': name,
+                            'totalScore': totalCategoryScore,
+                            'participantPhoto': photoUrl,
+                            'source': 'categoryScores',
+                          };
+                        }
+                      }
+
+                      // Prepare scores for category display
+                      var filteredScores = participantScores.values.toList();
+                      filteredScores.sort(
+                          (a, b) => b['totalScore'].compareTo(a['totalScore']));
+
+                      return Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          Positioned(
+                            bottom: 100,
+                            child: SizedBox(
+                              width: screenWidth,
+                              height: screenHeight * 0.40,
+                              child: Image.asset(
+                                'assets/images/POLE.png',
+                                fit: BoxFit.contain,
+                                alignment: Alignment.bottomCenter,
+                              ),
+                            ),
+                          ),
+                          _buildPodiumWinnerInfo(
+                            filteredScores.take(3).toList(),
+                            screenHeight,
+                            screenWidth,
+                          ),
+                        ],
+                      );
+                    },
+                  );
+                } else {
+                  // Overall Scores Display
+                  var filteredScores = participantScores.values.toList();
+
+                  // Sort by the total score
+                  filteredScores.sort(
+                      (a, b) => b['totalScore'].compareTo(a['totalScore']));
+
+                  return Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      Positioned(
+                        bottom: 100,
+                        child: SizedBox(
+                          width: screenWidth,
+                          height: screenHeight * 0.40,
+                          child: Image.asset(
+                            'assets/images/POLE.png',
+                            fit: BoxFit.contain,
+                            alignment: Alignment.bottomCenter,
+                          ),
+                        ),
                       ),
-                    ),
-                  ),
-                  _buildPodiumWinnerInfo(
-                      scores.take(3).toList(), screenHeight, screenWidth),
-                ],
-              );
+                      _buildPodiumWinnerInfo(
+                        filteredScores.take(3).toList(),
+                        screenHeight,
+                        screenWidth,
+                      ),
+                    ],
+                  );
+                }
+              }
+              return const SizedBox(); // Fallback in case of issues
             },
           ),
       ],
@@ -549,7 +676,7 @@ class _ResultState extends State<Result> {
     );
   }
 
-  Widget _buildBottomDrawer(String eventName) {
+  Widget _buildBottomDrawer(String eventName, String? selectedCategory) {
     return DraggableScrollableSheet(
       initialChildSize: 0.2,
       minChildSize: 0.2,
@@ -579,20 +706,13 @@ class _ResultState extends State<Result> {
                 if (!snapshot.hasData) {
                   return const Center(child: CircularProgressIndicator());
                 }
-
-                // Check if there are ranks for the current event
                 bool hasRanks = snapshot.data!.docs.any((doc) {
                   final data = doc.data() as Map<String, dynamic>;
-                  return data['eventName'] ==
-                      eventName; // Check for the current event
+                  return data['eventName'] == eventName;
                 });
-
-                // If there are no ranks, return an empty container to hide the drawer
                 if (!hasRanks) {
-                  return Container(); // Hide the drawer
+                  return Container();
                 }
-
-                // Proceed to build the drawer with ranks
                 return Container(
                   decoration: const BoxDecoration(
                     color: Color(0xFFEFEEFC),
@@ -631,6 +751,9 @@ class _ResultState extends State<Result> {
                           controller: scrollController,
                           padding: const EdgeInsets.all(16),
                           children: [
+                            // Remove Spacer to bring the text closer to the bottom
+                            const SizedBox(
+                                height: 1), // Optional: Small spacing above
                             Text(
                               'Additional Ranks',
                               style: GoogleFonts.poppins(
@@ -638,9 +761,11 @@ class _ResultState extends State<Result> {
                                 fontSize: 18,
                               ),
                             ),
-                            const SizedBox(height: 10),
-                            _buildRankList(
-                                eventName), // Pass the current event name
+                            const SizedBox(
+                                height:
+                                    1), // Reduce this size to move it even closer to the ranks
+                            _buildRankList(eventName,
+                                selectedCategory), // Pass the selected category
                           ],
                         ),
                       ),
@@ -655,8 +780,7 @@ class _ResultState extends State<Result> {
     );
   }
 
-  Widget _buildRankList(String eventName) {
-    // Add eventName parameter
+  Widget _buildRankList(String eventName, String? selectedCategory) {
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance.collection('scoresheets').snapshots(),
       builder: (context, snapshot) {
@@ -664,127 +788,222 @@ class _ResultState extends State<Result> {
           return const Center(child: CircularProgressIndicator());
         }
 
-        // Map to store aggregated scores by participantId
         Map<String, Map<String, dynamic>> participantScores = {};
 
-        // Loop through the Firestore data to accumulate scores for each participant
         for (var doc in snapshot.data!.docs) {
           final data = doc.data() as Map<String, dynamic>;
 
-          // Check if the event matches the current event
           if (data['eventName'] == eventName) {
-            // Filter by event name
             String participantId = data['participantId'].toString();
             String name = data['participantName'] ?? 'Unknown';
             String photoUrl = data['participantPhoto'] ?? '';
             int totalScore = data['totalScore'] ?? 0;
 
-            // Initialize or update participant score data
-            if (participantScores.containsKey(participantId)) {
-              participantScores[participantId]!['totalScore'] += totalScore;
-              participantScores[participantId]!['judgeCount'] += 1;
-            } else {
+            // Initialize participant scores
+            if (!participantScores.containsKey(participantId)) {
               participantScores[participantId] = {
                 'name': name,
-                'totalScore': totalScore,
+                'totalScore': 0.0, // Initialize total score for main criteria
                 'participantPhoto': photoUrl,
-                'judgeCount': 1,
+                'judgeCount': 0,
+                'categoryScores': {},
               };
+            }
+
+            // Increment judge count and sum the scores for main criteria
+            participantScores[participantId]!['judgeCount'] += 1;
+            participantScores[participantId]!['totalScore'] += totalScore;
+
+            // Update category scores if applicable
+            if (data['categoryScores'] != null) {
+              data['categoryScores'].forEach((category, score) {
+                participantScores[participantId]!['categoryScores'].update(
+                    category, (value) => value + score,
+                    ifAbsent: () => score);
+              });
             }
           }
         }
 
-        // Convert map to list and calculate average scores
-        var participants = participantScores.entries.map((entry) {
-          var data = entry.value;
-          double averageScore = data['totalScore'] / data['judgeCount'];
+        // Average the total scores based on the number of judges
+        participantScores.forEach((participantId, scoreData) {
+          int judgeCount =
+              scoreData['judgeCount'] ?? 1; // Avoid division by zero
+          scoreData['totalScore'] /= judgeCount; // Average score
+          scoreData['totalScore'] =
+              scoreData['totalScore'].clamp(0, 100); // Cap the score at 100
+        });
 
-          // Ensure score does not exceed 100 points
-          int finalScore = (averageScore > 100) ? 100 : averageScore.round();
+        // Handle category filtering
+        if (selectedCategory != null && selectedCategory != 'Main Criteria') {
+          return StreamBuilder<QuerySnapshot>(
+            stream: FirebaseFirestore.instance
+                .collection('categoryScores')
+                .where('categoryName', isEqualTo: selectedCategory)
+                .snapshots(),
+            builder: (context, categorySnapshot) {
+              if (categorySnapshot.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              }
 
-          return {
-            'name': data['name'],
-            'totalScore': finalScore,
-            'participantPhoto': data['participantPhoto'],
-          };
-        }).toList();
+              // Update scores based on category selection
+              for (var doc in categorySnapshot.data!.docs) {
+                final data = doc.data() as Map<String, dynamic>;
+                String participantId = data['participantId'].toString();
+                int totalCategoryScore = data['totalCategoryScore'] ?? 0;
 
-        // Sort participants based on their totalScore in descending order
-        participants.sort((a, b) =>
-            (b['totalScore'] as int).compareTo(a['totalScore'] as int));
+                // If the participant exists, update their score for the category view
+                if (participantScores.containsKey(participantId)) {
+                  participantScores[participantId]!['totalScore'] =
+                      totalCategoryScore; // Only for category view
+                } else {
+                  participantScores[participantId] = {
+                    'name': data['participantName'] ?? 'Unknown',
+                    'totalScore': totalCategoryScore,
+                    'participantPhoto': data['participantPhoto'] ?? '',
+                    'judgeCount': 0,
+                    'categoryScores': {},
+                  };
+                }
+              }
 
-        if (participants.isEmpty) {
-          return const Center(child: Text("No ranks available"));
+              var sortedScores = _getSortedScores(participantScores);
+              return _buildRankListView(sortedScores);
+            },
+          );
         }
 
-        // Filter out the top 3 ranks
-        var additionalRanks = participants.length > 3
-            ? participants.sublist(3) // Get ranks 4 and above
-            : [];
+        var sortedScores = _getSortedScores(participantScores);
+        return _buildRankListView(sortedScores);
+      },
+    );
+  }
 
-        return Column(
-          children: additionalRanks.asMap().entries.map((entry) {
-            int index = entry.key;
-            var rank = entry.value;
+  List _getSortedScores(Map<String, Map<String, dynamic>> participantScores) {
+    // Create a new list to store capped total scores
+    var cappedScores = [];
 
-            return Container(
-              decoration: BoxDecoration(
-                color: const Color(0xFFE6E6E6),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              margin: const EdgeInsets.symmetric(vertical: 8),
-              padding: const EdgeInsets.all(12),
-              child: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF9087E5),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      '${index + 4}th', // Calculate the rank starting from 4th
-                      style: GoogleFonts.rubik(
-                        fontWeight: FontWeight.w500,
-                        fontSize: 16,
-                      ),
+    // Iterate through each participant's scores
+    participantScores.forEach((participantId, scoreData) {
+      // Get totalScore as double and convert it to int if necessary
+      double totalScoreDouble = scoreData['totalScore']?.toDouble() ?? 0.0;
+
+      // Cap the score at 100 and convert to int
+      int totalScore = totalScoreDouble.clamp(0, 100).toInt();
+
+      // Prepare score entry
+      cappedScores.add({
+        'participantId': participantId,
+        'name': scoreData['name'],
+        'totalScore': totalScore,
+        'participantPhoto': scoreData['participantPhoto'],
+        'judgeCount': scoreData['judgeCount'],
+        'categoryScores': scoreData['categoryScores'],
+      });
+    });
+
+    // Sort the scores in descending order
+    cappedScores.sort((a, b) => b['totalScore'].compareTo(a['totalScore']));
+
+    // Return only participants ranked 4th or below
+    return cappedScores.skip(3).toList(); // Skip the top 3 participants
+  }
+
+  Widget _buildRankListView(List<dynamic> sortedScores) {
+    if (sortedScores.isEmpty) {
+      return const Center(child: Text("No ranks available"));
+    }
+
+    return SizedBox(
+      height: 400,
+      child: ListView.builder(
+        padding: EdgeInsets.zero,
+        itemCount: sortedScores.length,
+        itemBuilder: (context, index) {
+          var participant = sortedScores[index];
+          return Container(
+            decoration: BoxDecoration(
+              color: const Color(0xFFE6E6E6),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            margin: const EdgeInsets.symmetric(vertical: 6),
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              children: [
+                // Display the rank
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF9087E5),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    '${index + 4}th',
+                    style: GoogleFonts.rubik(
+                      fontWeight: FontWeight.w500,
+                      fontSize: 16,
                     ),
                   ),
-                  const SizedBox(width: 16),
-                  CircleAvatar(
-                    backgroundImage: NetworkImage(
-                      rank[
-                          'participantPhoto'], // Use the participant's image URL
-                    ),
-                    radius: 26,
+                ),
+                const SizedBox(width: 16),
+                ClipOval(
+                  child: Image.network(
+                    participant['participantPhoto'],
+                    height: 50,
+                    width: 50,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) {
+                      return const Icon(Icons.error, size: 50);
+                    },
+                    loadingBuilder: (context, child, loadingProgress) {
+                      if (loadingProgress == null) {
+                        return child;
+                      }
+                      return const Center(child: CircularProgressIndicator());
+                    },
                   ),
-                  const SizedBox(width: 16),
-                  Column(
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        rank['name']!,
+                        participant['name'],
                         style: GoogleFonts.rubik(
                           fontWeight: FontWeight.w500,
                           fontSize: 16,
                         ),
                       ),
                       Text(
-                        '${rank['totalScore']} POINTS',
+                        '${participant['totalScore']} Points',
                         style: GoogleFonts.rubik(
                           fontWeight: FontWeight.w400,
                           fontSize: 14,
                           color: Colors.grey[600],
                         ),
                       ),
+                      // Display category scores if available
+                      ...participant['categoryScores']
+                          .entries
+                          .map((categoryEntry) {
+                        return Text(
+                          '${categoryEntry.key}: ${categoryEntry.value} POINTS',
+                          style: GoogleFonts.rubik(
+                            fontWeight: FontWeight.w400,
+                            fontSize: 14,
+                            color: Colors.grey[600],
+                          ),
+                        );
+                      }).toList(),
                     ],
                   ),
-                ],
-              ),
-            );
-          }).toList(),
-        );
-      },
+                ),
+              ],
+            ),
+          );
+        },
+      ),
     );
   }
 }

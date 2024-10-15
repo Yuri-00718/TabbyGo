@@ -40,6 +40,7 @@ class DatabaseHelper {
       judges TEXT,
       participant TEXT,
       eventMechanics TEXT,
+      categories TEXT,
       criteria TEXT,
       templateCode TEXT,
       totalWeightage INTEGER
@@ -163,11 +164,14 @@ class DatabaseHelper {
         'judges': jsonEncode(template['judges'] ?? []),
         'participant': jsonEncode(template['participant'] ?? []),
         'criteria': jsonEncode(template['criteria'] ?? []),
-        'eventMechanics': jsonEncode(
-            template['eventMechanics'] ?? []), // Encode event mechanics as JSON
+        'categories': jsonEncode(template['categories'] ??
+            []), // Ensure this matches your template creation
+        'eventMechanics': jsonEncode(template['eventMechanics'] ?? []),
         'templateCode': template['templateCode'] ?? 'No Code',
         'totalWeightage': template['totalWeightage'] ?? 100,
       };
+
+      print('Inserting template: $encodedTemplate');
 
       return await db.insert('templates', encodedTemplate);
     } catch (e) {
@@ -198,9 +202,12 @@ class DatabaseHelper {
           'criteria': result['criteria'] != null
               ? jsonDecode(result['criteria'] as String)
               : [],
+          'categories': result['categories'] != null
+              ? jsonDecode(result['categories'] as String)
+              : [], // Decode category
           'eventMechanics': result['eventMechanics'] != null
               ? jsonDecode(result['eventMechanics'] as String)
-              : [], // Decode event mechanics
+              : [],
           'templateCode': result['templateCode'] ?? 'No Code',
           'totalWeightage': result['totalWeightage'] ?? 100,
         };
@@ -239,6 +246,9 @@ class DatabaseHelper {
           'criteria': template['criteria'] != null
               ? jsonDecode(template['criteria'] as String)
               : [],
+          'categories': template['categories'] != null
+              ? jsonDecode(template['categories'] as String)
+              : [], // Decode category
           'eventMechanics': template['eventMechanics'] != null
               ? jsonDecode(template['eventMechanics'] as String)
               : [],
@@ -282,6 +292,7 @@ class DatabaseHelper {
       'judges': jsonEncode(template['judges'] ?? []),
       'participant': jsonEncode(template['participant'] ?? []),
       'criteria': jsonEncode(template['criteria'] ?? []),
+      'categories': jsonEncode(template['categories'] ?? []),
       'eventMechanics': jsonEncode(template['eventMechanics'] ?? []),
       'templateCode': template['templateCode'] ?? 'No Code',
       'totalWeightage': template['totalWeightage'] ?? 100,
@@ -304,11 +315,10 @@ class DatabaseHelper {
           .get();
 
       if (snapshot.docs.isNotEmpty) {
-        // Print the retrieved document for debugging
         print('Template found: ${snapshot.docs.first.data()}');
-        return snapshot.docs.first.data(); // Ensure this contains 'eventName'
+        return snapshot.docs.first.data();
       } else {
-        print('No template found for code: $templateCode'); // Debugging line
+        print('No template found for code: $templateCode');
       }
     } catch (e) {
       print('Error getting template details: $e');
@@ -321,7 +331,7 @@ class DatabaseHelper {
     try {
       await _firestore.collection('templateCodes').add({
         'templateCode': templateCode,
-        'timestamp': FieldValue.serverTimestamp(), // Optional: add timestamp
+        'timestamp': FieldValue.serverTimestamp(),
       });
       print('Template code saved successfully: $templateCode');
     } catch (e) {
@@ -744,7 +754,6 @@ class DatabaseHelper {
   }
 
   //Results methods
-// Assuming you have a method to retrieve scores
   Future<List<Map<String, dynamic>>> getResults() async {
     try {
       // Fetch results from Firestore
@@ -756,27 +765,6 @@ class DatabaseHelper {
       return [];
     }
   }
-
-/*
-  Future<int> insertAdditionalRank(Map<String, dynamic> rank) async {
-    final db = await database;
-    try {
-      final encodedRank = {
-        'event_code': rank['event_code'] ?? '',
-        'participant_name': rank['participant_name'] ?? '',
-        'additional_points': rank['additional_points'] ?? 0,
-        'additional_rank': rank['additional_rank'] ?? 0,
-      };
-
-      return await db.insert('additional_ranks', encodedRank);
-    } catch (e) {
-      if (kDebugMode) {
-        print('Error inserting additional rank: $e');
-      }
-      rethrow;
-    }
-  }
-*/
 
   Future<int> insertResult(Map<String, dynamic> result) async {
     final db = await database;

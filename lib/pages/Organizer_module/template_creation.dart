@@ -1,4 +1,4 @@
-// ignore_for_file: library_private_types_in_public_api, depend_on_referenced_packages
+// ignore_for_file: library_private_types_in_public_api, depend_on_referenced_packages, non_constant_identifier_names
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
@@ -54,6 +54,19 @@ class _TemplateCreationState extends State<TemplateCreation> {
     },
   ];
 
+  final List<Map<String, dynamic>> _category = [
+    {
+      'Category': TextEditingController(),
+      'Weightage': TextEditingController(text: '0'),
+      'criteriaList': [
+        {
+          'Criteria': TextEditingController(),
+          'Weightage': TextEditingController(text: '0'),
+        },
+      ],
+    },
+  ];
+
   final List<Map<String, dynamic>> _participant = [
     {
       'Name': TextEditingController(),
@@ -89,6 +102,7 @@ class _TemplateCreationState extends State<TemplateCreation> {
       _judges.clear();
       _participant.clear();
       _criteria.clear();
+      _category.clear();
       _eventMechanics.clear();
 
       // Load template data
@@ -99,9 +113,14 @@ class _TemplateCreationState extends State<TemplateCreation> {
   }
 
   void _loadTemplateData() {
+    if (kDebugMode) {
+      print("Loaded template data: ${widget.template}");
+    }
+
     _loadJudges();
     _loadParticipants();
     _loadCriteria();
+    _loadCategory(); // Ensure this function is called
     _loadEventMechanics();
   }
 
@@ -151,6 +170,47 @@ class _TemplateCreationState extends State<TemplateCreation> {
       }
     } else {
       _addCriteria();
+    }
+  }
+
+  void _loadCategory() {
+    if (widget.template!.containsKey('categories') &&
+        widget.template!['categories'] is List<dynamic> &&
+        widget.template!['categories'].isNotEmpty) {
+      print("Loading categories...");
+      List<dynamic> categories = _getListFromTemplate('categories');
+      print("Parsed categories: $categories");
+
+      for (var category in categories) {
+        Map<String, dynamic> newCategory = {
+          'Category': TextEditingController(text: category['Category'] ?? ''),
+          'Weightage': TextEditingController(
+              text: category['Weightage']?.toString() ?? '0'),
+          'criteriaList': [],
+        };
+
+        // Ensure the criteria are accessed correctly
+        if (category.containsKey('Criteria') && category['Criteria'] != null) {
+          print("Loading criteria for category: ${category['Category']}");
+          List<dynamic> criteria = category['Criteria'];
+          print("Parsed criteria: $criteria");
+
+          for (var criterion in criteria) {
+            newCategory['criteriaList'].add({
+              'Criteria':
+                  TextEditingController(text: criterion['Description'] ?? ''),
+              'Weightage': TextEditingController(
+                  text: criterion['Weightage']?.toString() ?? '0'),
+            });
+          }
+        }
+
+        _category.add(newCategory);
+      }
+      print("Loaded categories into _category list: $_category");
+    } else {
+      print("No categories found, adding default category.");
+      _addCategory(); // Ensure this method is correctly defined
     }
   }
 
@@ -215,6 +275,12 @@ class _TemplateCreationState extends State<TemplateCreation> {
       criterion['Weightage']?.dispose();
     }
 
+    for (var Category in _category) {
+      Category['Category']?.dispose();
+      Category['Criteria']?.dispose();
+      Category['Weightage']?.dispose();
+    }
+
     for (var mechanic in _eventMechanics) {
       mechanic['description']?.dispose();
     }
@@ -239,7 +305,7 @@ class _TemplateCreationState extends State<TemplateCreation> {
 
   void _nextStep() {
     setState(() {
-      if (_currentStep < 6) {
+      if (_currentStep < 7) {
         _currentStep++;
       }
     });
@@ -282,15 +348,23 @@ class _TemplateCreationState extends State<TemplateCreation> {
     weightageController.addListener(() {
       _calculateTotalWeightage();
     });
-
     setState(() {
       _criteria.add({
         'Description': descriptionController,
         'Weightage': weightageController,
       });
     });
-
     _calculateTotalWeightage();
+  }
+
+  void _addCategory() {
+    setState(() {
+      _category.add({
+        'Category': TextEditingController(),
+        'Criteria': TextEditingController(),
+        'Weightage': TextEditingController(),
+      });
+    });
   }
 
   void _addEventMechanic() {
@@ -319,6 +393,19 @@ class _TemplateCreationState extends State<TemplateCreation> {
     if (kDebugMode) {
       print('Total weightage calculated: $_totalWeightage');
     }
+  }
+
+  void _calculateTotalWeightageForCategories() {
+    double totalWeightage = 0;
+
+    for (var category in _category) {
+      if (category['Weightage']?.text.isNotEmpty ?? false) {
+        totalWeightage += double.tryParse(category['Weightage']!.text) ?? 0;
+      }
+    }
+
+    // Do something with totalWeightage, e.g., update a state variable to display
+    print("Total Weightage for Categories: $totalWeightage");
   }
 
 // Update participant image with error handling
@@ -359,7 +446,7 @@ class _TemplateCreationState extends State<TemplateCreation> {
     String eventLocation = _eventLocationController.text;
     String eventDate = _dateController.text;
 
-    // Convert judge details to list of maps
+    // Convert judges details to list of maps
     List<Map<String, dynamic>> judges = _judges.map((judge) {
       return {
         'name': judge['name']?.text ?? '',
@@ -387,12 +474,44 @@ class _TemplateCreationState extends State<TemplateCreation> {
       };
     }).toList();
 
+// Convert categories details to list of maps, including criteria
+    List<Map<String, dynamic>> categoriesToSave = [];
+    for (var category in _category) {
+      List<Map<String, dynamic>> criteriaList = [];
+      int totalWeightageForCategory =
+          0; // Variable to hold total weightage for the category
+
+      for (var criterion in category['criteriaList']) {
+        try {
+          int criterionWeightage = int.tryParse(criterion['Weightage'].text) ??
+              0; // Convert to integer
+          totalWeightageForCategory +=
+              criterionWeightage; // Sum up the weightages
+
+          criteriaList.add({
+            'Description': criterion['Criteria'].text ?? '',
+            'Weightage': criterionWeightage,
+          });
+        } catch (e) {
+          // Handle potential parsing errors
+          if (kDebugMode) {
+            print('Error parsing criterion weightage: $e');
+          }
+        }
+      }
+
+      categoriesToSave.add({
+        'Category': category['Category'].text ?? '',
+        'Criteria': criteriaList,
+        'Weightage': totalWeightageForCategory, // Store as integer
+      });
+    }
+
     // Prepare event mechanics data, including uploaded files
     List<Map<String, dynamic>> eventMechanics = [
       {
-        'description':
-            _eventMechanicsController.text, // Use the text from the controller
-        'files': _uploadedFiles // Use the uploaded files directly
+        'description': _eventMechanicsController.text,
+        'files': _uploadedFiles,
       }
     ];
 
@@ -401,11 +520,11 @@ class _TemplateCreationState extends State<TemplateCreation> {
       'eventName': eventName,
       'eventLocation': eventLocation,
       'eventDate': eventDate,
-      'judges': jsonEncode(judges),
-      'participant': jsonEncode(participants),
-      'criteria': jsonEncode(criteria),
-      'eventMechanics':
-          jsonEncode(eventMechanics), // Ensure this is correctly serialized
+      'judges': judges,
+      'participant': participants,
+      'criteria': criteria,
+      'categories': categoriesToSave,
+      'eventMechanics': eventMechanics,
       'templateCode': _templateCode,
       'totalWeightage': _totalWeightage,
     };
@@ -456,7 +575,7 @@ class _TemplateCreationState extends State<TemplateCreation> {
             const SizedBox(height: 24),
             _buildTitleSection(),
             const SizedBox(height: 16),
-            _buildProgressBar(_currentStep, 5),
+            _buildProgressBar(_currentStep, 6),
             const SizedBox(height: 16),
             _buildTemplateForm(context),
           ],
@@ -620,14 +739,14 @@ class _TemplateCreationState extends State<TemplateCreation> {
           return Row(
             children: [
               Container(
-                height: 35, // Same size for all circles
-                width: 35,
+                height: 25, // Same size for all circles
+                width: 25,
                 decoration: BoxDecoration(
                   color: isActive ? const Color(0xFF9087E5) : Colors.white,
                   shape: BoxShape.circle,
                   border: Border.all(
                     color: const Color(0xFFC6C6C6),
-                    width: 2,
+                    width: 1,
                   ),
                   boxShadow: isActive || isCompleted
                       ? [
@@ -689,8 +808,10 @@ class _TemplateCreationState extends State<TemplateCreation> {
                 ] else if (_currentStep == 5) ...[
                   _buildCriteriaForm(),
                 ] else if (_currentStep == 6) ...[
-                  _buildTemplateCodeDisplay(),
+                  _buildCategoryForm(),
                 ] else if (_currentStep == 7) ...[
+                  _buildTemplateCodeDisplay(),
+                ] else if (_currentStep == 8) ...[
                   _buildTemplateCreatedDisplay(),
                 ],
                 const SizedBox(height: 16),
@@ -998,6 +1119,92 @@ class _TemplateCreationState extends State<TemplateCreation> {
     );
   }
 
+  Widget _buildCategoryForm() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        for (int i = 0; i < _category.length; i++) ...[
+          _buildTextField(
+            'Category ${i + 1}',
+            _category[i]['Category'] ?? TextEditingController(),
+            isWeightage: false,
+          ),
+          const SizedBox(height: 8),
+          for (int j = 0;
+              j < (_category[i]['criteriaList'] ?? []).length;
+              j++) ...[
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: _buildTextField(
+                    'Criteria',
+                    _category[i]['criteriaList']?[j]['Criteria'] ??
+                        TextEditingController(),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _buildTextField(
+                    'Weightage',
+                    _category[i]['criteriaList']?[j]['Weightage'] ??
+                        TextEditingController(text: '0'),
+                    isWeightage: true,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+          ],
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const SizedBox(),
+              IconButton(
+                icon: const Icon(Icons.add),
+                onPressed: () {
+                  setState(() {
+                    final criteriaController = TextEditingController();
+                    final weightageController =
+                        TextEditingController(text: '0');
+
+                    weightageController.addListener(() {
+                      _calculateTotalWeightageForCategories();
+                    });
+
+                    if (_category[i]['criteriaList'] == null) {
+                      _category[i]['criteriaList'] = [];
+                    }
+
+                    _category[i]['criteriaList'].add({
+                      'Criteria': criteriaController,
+                      'Weightage': weightageController,
+                    });
+                  });
+                },
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+        ],
+
+        // Button to add another category
+        ElevatedButton(
+          onPressed: () {
+            setState(() {
+              final categoryController = TextEditingController();
+              _category.add({
+                'Category': categoryController,
+                'criteriaList': [],
+              });
+            });
+          },
+          child: const Text('Add Category'),
+        ),
+      ],
+    );
+  }
+
   Widget _buildEventMechanicsForm(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1217,7 +1424,7 @@ class _TemplateCreationState extends State<TemplateCreation> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        if (_currentStep < 6) ...[
+        if (_currentStep < 7) ...[
           ElevatedButton(
             onPressed: () {
               if (_currentStep > 1) {
@@ -1247,14 +1454,14 @@ class _TemplateCreationState extends State<TemplateCreation> {
           ),
           ElevatedButton(
             onPressed: () async {
-              if (_currentStep == 4 && !_isTemplateGenerated) {
+              if (_currentStep == 5 && !_isTemplateGenerated) {
                 setState(() {
                   _isTemplateGenerated = true;
                 });
               }
-              if (_currentStep < 6 || !_isTemplateGenerated) {
+              if (_currentStep < 7 || !_isTemplateGenerated) {
                 _nextStep();
-              } else if (_currentStep == 5 && _isTemplateGenerated) {
+              } else if (_currentStep == 6 && _isTemplateGenerated) {
                 // Generate template logic if needed
               }
             },
@@ -1269,7 +1476,7 @@ class _TemplateCreationState extends State<TemplateCreation> {
               ),
             ),
             child: Text(
-              _currentStep == 5 ? 'Generate Template' : 'Next',
+              _currentStep == 6 ? 'Generate Template' : 'Next',
               style: GoogleFonts.poppins(
                 fontWeight: FontWeight.w600,
                 fontSize: 16,
@@ -1277,14 +1484,14 @@ class _TemplateCreationState extends State<TemplateCreation> {
               ),
             ),
           ),
-        ] else if (_currentStep == 6) ...[
+        ] else if (_currentStep == 7) ...[
           ElevatedButton(
             onPressed: () async {
               if (_isTemplateGenerated) {
                 try {
                   await _saveTemplateToDatabase(); // Save template details
                   setState(() {
-                    _currentStep = 7; // Move to the final step
+                    _currentStep = 8; // Move to the final step
                   });
                 } catch (e) {
                   if (kDebugMode) {
