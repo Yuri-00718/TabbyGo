@@ -39,8 +39,7 @@ class _TabulationModuleState extends State<TabulationModule> {
         String name = data['participantName'] ?? 'Unknown';
         String photoUrl = data['participantPhoto'] ?? '';
         double totalScore = (data['totalScore'] ?? 0).toDouble();
-        String judgeName =
-            data['judgeName'] ?? 'Unknown Judge'; // Added judge name
+        String judgeName = data['judgeName'] ?? 'Unknown Judge';
 
         if (!_participantScores.containsKey(participantId)) {
           _participantScores[participantId] = {
@@ -49,7 +48,7 @@ class _TabulationModuleState extends State<TabulationModule> {
             'participantPhoto': photoUrl,
             'judgeCount': 0,
             'categoryScores': {},
-            'judges': {}, // To store judges for each category
+            'judges': {},
           };
         }
 
@@ -60,13 +59,11 @@ class _TabulationModuleState extends State<TabulationModule> {
           final categoryScores =
               data['categoryScores'] as Map<dynamic, dynamic>;
           categoryScores.forEach((category, score) {
-            // Update category scores
             _participantScores[participantId]!['categoryScores'].update(
                 category.toString(),
                 (value) => value + (score as num).toDouble(),
                 ifAbsent: () => (score as num).toDouble());
 
-            // Update judges for each category
             if (!_participantScores[participantId]!['judges']
                 .containsKey(category)) {
               _participantScores[participantId]!['judges'][category] = [];
@@ -77,7 +74,6 @@ class _TabulationModuleState extends State<TabulationModule> {
         }
       }
 
-      // Average scores calculation
       _participantScores.forEach((participantId, scoreData) {
         int judgeCount = scoreData['judgeCount'] ?? 1;
         scoreData['totalScore'] =
@@ -119,6 +115,9 @@ class _TabulationModuleState extends State<TabulationModule> {
                           data['categoryScores'] as Map<dynamic, dynamic>;
                       final judges = data['judges'] as Map<dynamic, dynamic>;
 
+                      final List<String> categories =
+                          categoryScores.keys.map((e) => e.toString()).toList();
+
                       return Container(
                         margin: const EdgeInsets.only(bottom: 20.0),
                         padding: const EdgeInsets.all(10.0),
@@ -137,14 +136,20 @@ class _TabulationModuleState extends State<TabulationModule> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            // Display the participant's photo
                             ClipOval(
-                              child: Image.network(
-                                data['participantPhoto'],
-                                width: 50,
-                                height: 50,
-                                fit: BoxFit.cover,
-                              ),
+                              child: data['participantPhoto'] != null &&
+                                      data['participantPhoto'].isNotEmpty
+                                  ? Image.network(
+                                      data['participantPhoto'],
+                                      width: 50,
+                                      height: 50,
+                                      fit: BoxFit.cover,
+                                      errorBuilder:
+                                          (context, error, stackTrace) {
+                                        return Icon(Icons.person, size: 50);
+                                      },
+                                    )
+                                  : Icon(Icons.person, size: 50),
                             ),
                             const SizedBox(height: 8.0),
                             Text(
@@ -159,7 +164,6 @@ class _TabulationModuleState extends State<TabulationModule> {
                               'Average Score: ${data['totalScore'].toStringAsFixed(2)}',
                             ),
                             const SizedBox(height: 8.0),
-                            // Display judges for each category
                             ...judges.entries.map((entry) {
                               String category = entry.key.toString();
                               List<String> judgeNames = entry.value;
@@ -175,6 +179,10 @@ class _TabulationModuleState extends State<TabulationModule> {
                               legend: const Legend(isVisible: true),
                               primaryXAxis: CategoryAxis(
                                 title: AxisTitle(text: 'Categories'),
+                                arrangeByIndex: true,
+                                maximumLabels: categories.length,
+                                labelRotation:
+                                    45, // Rotate labels to avoid overlap
                               ),
                               primaryYAxis: NumericAxis(
                                 title: AxisTitle(text: 'Scores'),
@@ -210,12 +218,12 @@ class _TabulationModuleState extends State<TabulationModule> {
                                   xValueMapper: (data, _) => data['category'],
                                   yValueMapper: (data, _) => data['score'],
                                   name: 'Score Trend',
-                                  color: const Color(0xFFff6347), // Line color
-                                  width: 2, // Width of the line
+                                  color: const Color(0xFFff6347),
+                                  width: 2,
                                   markerSettings: const MarkerSettings(
                                     isVisible: true,
                                     shape: DataMarkerType.circle,
-                                    color: Color(0xFFff6347), // Marker color
+                                    color: Color(0xFFff6347),
                                     borderColor: Colors.white,
                                   ),
                                 ),

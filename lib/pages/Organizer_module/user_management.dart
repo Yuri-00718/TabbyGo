@@ -70,9 +70,7 @@ class _UserManagementState extends State<UserManagement> {
         ),
         child: FloatingActionButton(
           onPressed: () async {
-            final page = _isJudgesSelected
-                ? const JudgeCreation(role: 'Add Judge +', judge: {})
-                : const AdminCreation(role: 'Add Admin +', admin: {});
+            final page = const JudgeCreation(role: 'Add Judge +', judge: {});
 
             // Show loading dialog
             showDialog(
@@ -92,11 +90,7 @@ class _UserManagementState extends State<UserManagement> {
 
             if (result != null) {
               setState(() {
-                if (_isJudgesSelected) {
-                  _judgesFuture = _fetchJudges();
-                } else {
-                  _adminsFuture = _fetchAdmins();
-                }
+                _judgesFuture = _fetchJudges();
               });
             }
           },
@@ -107,7 +101,7 @@ class _UserManagementState extends State<UserManagement> {
           ),
           child: Center(
             child: Text(
-              _isJudgesSelected ? 'Add Judge +' : 'Add Admin +',
+              'Add Judge +',
               style: GoogleFonts.poppins(
                 fontWeight: FontWeight.w500,
                 fontSize: 14,
@@ -233,18 +227,6 @@ class _UserManagementState extends State<UserManagement> {
               });
             },
             child: _buildButton('Judges', _isJudgesSelected),
-          ),
-        ),
-        const SizedBox(width: 15),
-        Expanded(
-          child: GestureDetector(
-            onTap: () {
-              setState(() {
-                _isJudgesSelected = false;
-                _adminsFuture = _fetchAdmins();
-              });
-            },
-            child: _buildButton('Admin', !_isJudgesSelected),
           ),
         ),
       ],
