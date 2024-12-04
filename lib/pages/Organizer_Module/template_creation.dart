@@ -1912,6 +1912,4 @@ class _TemplateCreationState extends State<TemplateCreation> {
       ],
     );
   }
-
-  // this is for summarization of all data inputted
 }

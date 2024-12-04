@@ -384,7 +384,129 @@ class _TemplateMenusState extends State<TemplateMenus> {
             color: const Color(0xFFFFFFFF),
           ),
         ),
+        const SizedBox(width: 30),
+        ElevatedButton(
+          onPressed: () async {
+            try {
+              // Fetch templates from the database
+              List<Map<String, dynamic>> templates =
+                  await DatabaseHelper.instance.getTemplates();
+
+              if (templates.isNotEmpty) {
+                // Show the modal to choose a template for cloning
+                Map<String, dynamic>? selectedTemplate =
+                    await _showTemplateSelectionDialog(context, templates);
+
+                if (selectedTemplate != null) {
+                  print("Selected Template: ${selectedTemplate['eventName']}");
+
+                  // Navigate to TemplateCreation with the selected template
+                  _navigateToTemplateCreation(template: selectedTemplate);
+                } else {
+                  print("No template selected for cloning");
+                }
+              } else {
+                // Show a message if no templates are available
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                      content: Text('No templates available to choose from.')),
+                );
+              }
+            } catch (e) {
+              print("Error fetching templates: $e");
+            }
+          },
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFF5144B6),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
+            padding: const EdgeInsets.all(9),
+          ),
+          child: const Row(
+            children: [
+              Icon(Icons.copy, color: Colors.white),
+              SizedBox(width: 5),
+              Text(
+                'Clone Template',
+                style: TextStyle(color: Colors.white),
+              ),
+            ],
+          ),
+        ),
       ],
+    );
+  }
+
+// choose template modal
+  Future<Map<String, dynamic>?> _showTemplateSelectionDialog(
+      BuildContext context, List<Map<String, dynamic>> templates) async {
+    return await showDialog<Map<String, dynamic>>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Text(
+            "Choose a Template",
+            style: GoogleFonts.poppins(
+              fontWeight: FontWeight.w600,
+              fontSize: 18,
+            ),
+          ),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: templates.map((template) {
+                String templateTitle =
+                    template['eventName'] ?? 'Untitled Template';
+                List<dynamic> criteriaList = template['criteria'] ?? [];
+                String criteriaDetails = criteriaList.isNotEmpty
+                    ? criteriaList
+                        .map((c) => "${c['Description']} (${c['Weightage']}%)")
+                        .join("\n")
+                    : "No criteria available.";
+
+                return ListTile(
+                  title: Text(
+                    templateTitle,
+                    style: GoogleFonts.poppins(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  subtitle: Text(
+                    criteriaDetails,
+                    style: GoogleFonts.poppins(fontSize: 14),
+                  ),
+                  leading: const Icon(Icons.event_note, color: Colors.blue),
+                  onTap: () {
+                    // Clone the template data
+                    Map<String, dynamic> clonedTemplate = {
+                      ...template,
+                      'eventName': "", // Clear the event name for user input
+                      'templateCode':
+                          null, // Reset the template code to be generated
+                      'id': null, // Remove unique ID to prevent update
+                      'timestamp': null, // Clear timestamp for a fresh record
+                    };
+
+                    // Close the dialog and return the cloned template
+                    Navigator.of(context).pop(clonedTemplate);
+                  },
+                );
+              }).toList(),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: Text(
+                "Cancel",
+                style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 

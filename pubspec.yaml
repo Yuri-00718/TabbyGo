@@ -53,9 +53,11 @@ dev_dependencies:
 flutter:
   uses-material-design: true
   assets:
+
   - assets/JSON/Catsu.json
   - assets/JSON/LOADING.json
   - assets/images/text logo black.png
+  - assets/images/Template.png
   - assets/images/Filter.png
   - assets/images/refresh_result.png
   - assets/images/no-photo.png
