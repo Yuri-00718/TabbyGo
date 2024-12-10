@@ -86,6 +86,7 @@ class _TemplateCreationState extends State<TemplateCreation> {
   void initState() {
     super.initState();
     _maxWeightageController.text = '100';
+    _calculateTotalWeightage();
 
     if (widget.template != null) {
       _eventNameController.text = widget.template!['eventName'] ?? '';
@@ -119,8 +120,9 @@ class _TemplateCreationState extends State<TemplateCreation> {
     _loadJudges();
     _loadParticipants();
     _loadCriteria();
-    _loadCategory(); // Ensure this function is called
+    _loadCategory();
     _loadEventMechanics();
+    _calculateTotalWeightage();
   }
 
   void _loadJudges() {
@@ -170,6 +172,9 @@ class _TemplateCreationState extends State<TemplateCreation> {
     } else {
       _addCriteria();
     }
+
+    // Calculate total weightage after loading criteria
+    _calculateTotalWeightage();
   }
 
   void _loadCategory() {

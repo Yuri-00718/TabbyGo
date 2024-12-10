@@ -21,11 +21,37 @@ class _ResultState extends State<Result> {
   bool _isLoading = true;
   bool _showDrawer = false;
   String? _selectedCategory;
+  bool _isDisposed = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _simulateLoading();
+  }
+
+  @override
+  void dispose() {
+    _isDisposed = true;
+    super.dispose();
+  }
+
+  void _simulateLoading() {
+    Future.delayed(const Duration(seconds: 3), () {
+      if (!_isDisposed) {
+        setState(() {
+          _isLoading = false;
+          _showDrawer = true;
+        });
+      }
+    });
+  }
 
   void _checkForUpdates() async {
-    setState(() {
-      _isLoading = true;
-    });
+    if (!_isDisposed) {
+      setState(() {
+        _isLoading = true;
+      });
+    }
 
     try {
       QuerySnapshot querySnapshot = await FirebaseFirestore.instance
@@ -48,33 +74,12 @@ class _ResultState extends State<Result> {
       }
     }
 
-//animation of loading
     await Future.delayed(const Duration(seconds: 3));
-    if (mounted) {
+    if (!_isDisposed) {
       setState(() {
         _isLoading = false;
       });
     }
-  }
-
-  @override
-  void dispose() {
-    super.dispose();
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    _simulateLoading();
-  }
-
-  void _simulateLoading() {
-    Future.delayed(const Duration(seconds: 3), () {
-      setState(() {
-        _isLoading = false;
-        _showDrawer = true;
-      });
-    });
   }
 
   final TextStyle goodMorningStyle = GoogleFonts.rubik(
@@ -83,6 +88,8 @@ class _ResultState extends State<Result> {
     height: 1.5,
     letterSpacing: 0.5,
     color: const Color(0xFFFFD6DD),
+  ).copyWith(
+    fontFamilyFallback: ['Rubik', 'Arial', 'sans-serif'],
   );
 
   final TextStyle adminStyle = GoogleFonts.rubik(
@@ -90,6 +97,8 @@ class _ResultState extends State<Result> {
     fontSize: 24,
     height: 1.5,
     color: const Color(0xFFFFFFFF),
+  ).copyWith(
+    fontFamilyFallback: ['Rubik', 'Arial', 'sans-serif'],
   );
 
   final TextStyle resultsStyle = GoogleFonts.poppins(
@@ -97,6 +106,8 @@ class _ResultState extends State<Result> {
     fontSize: 24,
     height: 1.5,
     color: const Color(0xFFFFFFFF),
+  ).copyWith(
+    fontFamilyFallback: ['Poppins', 'Arial', 'sans-serif'],
   );
 
   final TextStyle exportStyle = GoogleFonts.rubik(
@@ -104,6 +115,8 @@ class _ResultState extends State<Result> {
     fontSize: 12,
     height: 1.5,
     color: const Color(0xFFE6E6E6),
+  ).copyWith(
+    fontFamilyFallback: ['Rubik', 'Arial', 'sans-serif'],
   );
 
   final TextStyle eventStyle = GoogleFonts.rubik(
@@ -111,6 +124,8 @@ class _ResultState extends State<Result> {
     fontSize: 16,
     height: 1.5,
     color: const Color(0xFFFFFFFF),
+  ).copyWith(
+    fontFamilyFallback: ['Rubik', 'Arial', 'sans-serif'],
   );
 
   final TextStyle allEventStyle = GoogleFonts.rubik(
@@ -118,6 +133,8 @@ class _ResultState extends State<Result> {
     fontSize: 16,
     height: 1.5,
     color: const Color(0xFFB9B4E4),
+  ).copyWith(
+    fontFamilyFallback: ['Rubik', 'Arial', 'sans-serif'],
   );
 
   @override

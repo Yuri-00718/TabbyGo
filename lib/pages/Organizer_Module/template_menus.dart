@@ -1,4 +1,4 @@
-// ignore_for_file: depend_on_referenced_packages, use_build_context_synchronously
+// ignore_for_file: depend_on_referenced_packages, use_build_context_synchronously, avoid_print
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -421,15 +421,24 @@ class _TemplateMenusState extends State<TemplateMenus> {
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(8),
             ),
-            padding: const EdgeInsets.all(9),
+            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 9),
           ),
-          child: const Row(
+          child: Row(
             children: [
-              Icon(Icons.copy, color: Colors.white),
-              SizedBox(width: 5),
+              Image.asset(
+                'assets/images/Template.png',
+                width: 20,
+                height: 20,
+                color: Colors.white,
+              ),
+              const SizedBox(width: 5),
               Text(
-                'Clone Template',
-                style: TextStyle(color: Colors.white),
+                'Choose Template',
+                style: GoogleFonts.poppins(
+                  color: Colors.white,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                ),
               ),
             ],
           ),
@@ -445,6 +454,9 @@ class _TemplateMenusState extends State<TemplateMenus> {
       context: context,
       builder: (context) {
         return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
           title: Text(
             "Choose a Template",
             style: GoogleFonts.poppins(
@@ -453,55 +465,126 @@ class _TemplateMenusState extends State<TemplateMenus> {
             ),
           ),
           content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: templates.map((template) {
-                String templateTitle =
-                    template['eventName'] ?? 'Untitled Template';
-                List<dynamic> criteriaList = template['criteria'] ?? [];
-                String criteriaDetails = criteriaList.isNotEmpty
-                    ? criteriaList
-                        .map((c) => "${c['Description']} (${c['Weightage']}%)")
-                        .join("\n")
-                    : "No criteria available.";
+            child: templates.isNotEmpty
+                ? Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: templates.map((template) {
+                      String templateTitle =
+                          template['eventName'] ?? 'Untitled Template';
+                      List<dynamic> criteriaList = template['criteria'] ?? [];
+                      List<dynamic> categoriesList =
+                          template['categories'] ?? [];
 
-                return ListTile(
-                  title: Text(
-                    templateTitle,
-                    style: GoogleFonts.poppins(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w500,
+                      // Format criteria as a bulleted list
+                      String criteriaDetails = criteriaList.isNotEmpty
+                          ? criteriaList
+                              .map((c) =>
+                                  "• ${c['Description']} (${c['Weightage']}%)")
+                              .join("\n")
+                          : "No criteria available.";
+
+                      // Format categories and their criteria as a nested list
+                      String categoriesDetails = categoriesList.isNotEmpty
+                          ? categoriesList.map((category) {
+                              String categoryName = category['Category'] ?? '';
+                              List<dynamic> categoryCriteria =
+                                  category['Criteria'] ?? [];
+
+                              String formattedCriteria = categoryCriteria
+                                      .isNotEmpty
+                                  ? categoryCriteria
+                                      .map((c) =>
+                                          "   - ${c['Description']} (${c['Weightage']}%)")
+                                      .join("\n")
+                                  : "   No criteria.";
+
+                              return "• $categoryName\n$formattedCriteria";
+                            }).join("\n\n")
+                          : "No categories available.";
+
+                      return Card(
+                        elevation: 2,
+                        margin: const EdgeInsets.symmetric(vertical: 8),
+                        child: ListTile(
+                          contentPadding: const EdgeInsets.all(10),
+                          title: Text(
+                            templateTitle,
+                            style: GoogleFonts.poppins(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          subtitle: Padding(
+                            padding: const EdgeInsets.only(top: 8.0),
+                            child: ConstrainedBox(
+                              constraints: BoxConstraints(
+                                maxWidth:
+                                    MediaQuery.of(context).size.width * 0.8,
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    "Criteria:",
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  Text(
+                                    criteriaDetails,
+                                    style: GoogleFonts.poppins(fontSize: 14),
+                                  ),
+                                  const SizedBox(height: 10),
+                                  Text(
+                                    "Categories:",
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  Text(
+                                    categoriesDetails,
+                                    style: GoogleFonts.poppins(fontSize: 14),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          onTap: () {
+                            // Clone the template data
+                            Map<String, dynamic> clonedTemplate = {
+                              'criteria': template['criteria'] ?? [],
+                              'categories': template['categories'] ?? [],
+                            };
+
+                            // Close the dialog and return the cloned template
+                            Navigator.of(context).pop(clonedTemplate);
+                          },
+                        ),
+                      );
+                    }).toList(),
+                  )
+                : Center(
+                    child: Text(
+                      "No templates available.",
+                      style: GoogleFonts.poppins(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w400,
+                        color: Colors.grey[600],
+                      ),
                     ),
                   ),
-                  subtitle: Text(
-                    criteriaDetails,
-                    style: GoogleFonts.poppins(fontSize: 14),
-                  ),
-                  leading: const Icon(Icons.event_note, color: Colors.blue),
-                  onTap: () {
-                    // Clone the template data
-                    Map<String, dynamic> clonedTemplate = {
-                      ...template,
-                      'eventName': "", // Clear the event name for user input
-                      'templateCode':
-                          null, // Reset the template code to be generated
-                      'id': null, // Remove unique ID to prevent update
-                      'timestamp': null, // Clear timestamp for a fresh record
-                    };
-
-                    // Close the dialog and return the cloned template
-                    Navigator.of(context).pop(clonedTemplate);
-                  },
-                );
-              }).toList(),
-            ),
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
               child: Text(
                 "Cancel",
-                style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+                style: GoogleFonts.poppins(
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xFF5144B6),
+                ),
               ),
             ),
           ],

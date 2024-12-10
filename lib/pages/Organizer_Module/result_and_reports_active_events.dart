@@ -20,6 +20,7 @@ class _ResultAndReportsActiveEventsState
   bool _isActiveEventSelected = true;
   List<Map<String, dynamic>> events = [];
   List<Map<String, dynamic>> activeEvents = [];
+  bool isLoading = true;
 
   @override
   void initState() {
@@ -29,12 +30,19 @@ class _ResultAndReportsActiveEventsState
 
   Future<void> _loadEventData() async {
     try {
+      setState(() {
+        isLoading = true; // Start loading
+      });
+
+      // Fetch all events
       final allEvents = await DatabaseHelper.instance.getTemplates();
 
+      // Fetch scoresheets and extract template codes
       final scoresheets = await DatabaseHelper.instance.getScoresheets();
       final scoreTemplateCodes =
           scoresheets.map((score) => score['templateCode']).toSet();
 
+      // Filter active events based on template codes
       activeEvents = allEvents.where((event) {
         final templateCode = event['templateCode'];
         return templateCode != null &&
@@ -42,13 +50,21 @@ class _ResultAndReportsActiveEventsState
             scoreTemplateCodes.contains(templateCode);
       }).toList();
 
+      // Update the state with the loaded data
       setState(() {
         events = allEvents;
+        isLoading = false; // Stop loading
       });
     } catch (e) {
+      // Handle errors gracefully
       if (kDebugMode) {
         print('Error loading event data: $e');
       }
+
+      setState(() {
+        isLoading = false; // Stop loading even on error
+      });
+
       // Show an error message to the user
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -106,7 +122,7 @@ class _ResultAndReportsActiveEventsState
               const SizedBox(width: 10),
               Text(
                 'GOOD MORNING ',
-                style: GoogleFonts.rubik(
+                style: GoogleFonts.poppins(
                   fontWeight: FontWeight.w500,
                   fontSize: 12,
                   height: 1.5,
@@ -119,7 +135,7 @@ class _ResultAndReportsActiveEventsState
           const SizedBox(height: 4),
           Text(
             'ORGANIZER',
-            style: GoogleFonts.rubik(
+            style: GoogleFonts.poppins(
               fontWeight: FontWeight.w500,
               fontSize: 24,
               height: 1.5,
@@ -182,7 +198,7 @@ class _ResultAndReportsActiveEventsState
               child: Center(
                 child: Text(
                   'Active Event',
-                  style: GoogleFonts.rubik(
+                  style: GoogleFonts.poppins(
                     fontWeight: FontWeight.w500,
                     fontSize: 16,
                     color: _isActiveEventSelected
@@ -218,7 +234,7 @@ class _ResultAndReportsActiveEventsState
               child: Center(
                 child: Text(
                   'All Event',
-                  style: GoogleFonts.rubik(
+                  style: GoogleFonts.poppins(
                     fontWeight: FontWeight.w500,
                     fontSize: 16,
                     color: !_isActiveEventSelected
@@ -236,46 +252,112 @@ class _ResultAndReportsActiveEventsState
 
   Widget _buildActiveEventContainer(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
-    final screenHeight = MediaQuery.of(context).size.height;
-    final bottomPadding = screenHeight * 0.5;
 
-    return Padding(
-      padding: EdgeInsets.only(top: 16, bottom: bottomPadding),
-      child: activeEvents.isEmpty
-          ? const Center(child: Text('No active event found'))
-          : GestureDetector(
-              onTap: () {
-                // Pass the event name to the Result module
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) =>
-                        Result(eventName: activeEvents.first['eventName']),
-                  ),
-                );
-              },
-              child: SizedBox(
-                width: screenWidth * 0.9,
-                height: 50,
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF7D8EEA),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Center(
-                    child: Text(
-                      activeEvents.first['eventName'] ?? 'Unnamed Event',
-                      style: GoogleFonts.rubik(
-                        fontWeight: FontWeight.w500,
-                        fontSize: 20,
-                        color: const Color(0xFFFFFFFF),
-                      ),
-                      textAlign: TextAlign.center,
+    if (isLoading) {
+      return const Center(
+        child: CircularProgressIndicator(),
+      );
+    }
+
+    if (activeEvents.isEmpty) {
+      return Center(
+        child: Text(
+          'No active events found',
+          style: GoogleFonts.poppins(
+            fontSize: 18,
+            fontWeight: FontWeight.w400,
+            color: const Color.fromARGB(255, 255, 255, 255),
+          ),
+          textAlign: TextAlign.center,
+        ),
+      );
+    }
+
+    // Display the list of active events
+    return ListView.builder(
+      padding: const EdgeInsets.only(top: 8),
+      itemCount: activeEvents.length,
+      itemBuilder: (context, index) {
+        final event = activeEvents[index];
+        return GestureDetector(
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => Result(eventName: event['eventName']),
+              ),
+            );
+          },
+          child: Container(
+            margin: EdgeInsets.symmetric(
+              vertical: index == 0 ? 6 : 13, // Less margin for the first event
+            ),
+            width: screenWidth * 0.9,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(15),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.grey.withOpacity(0.2),
+                  blurRadius: 6,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 16.0,
+                vertical: 12.0,
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 60,
+                    height: 60,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF7D8EEA),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(
+                      Icons.event,
+                      color: Colors.white,
+                      size: 30,
                     ),
                   ),
-                ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          event['eventName'] ?? 'Unnamed Event',
+                          style: GoogleFonts.poppins(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 18,
+                            color: const Color(0xFF333333),
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          event['eventDate'] ?? 'Date not available',
+                          style: GoogleFonts.poppins(
+                            fontSize: 14,
+                            color: Colors.grey[600],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Icon(
+                    Icons.chevron_right,
+                    color: Colors.grey,
+                  ),
+                ],
               ),
             ),
+          ),
+        );
+      },
     );
   }
 
@@ -316,7 +398,7 @@ class _ResultAndReportsActiveEventsState
                       child: Text(
                         event['eventName'] ?? 'Unnamed Event',
                         textAlign: TextAlign.center,
-                        style: GoogleFonts.rubik(
+                        style: GoogleFonts.poppins(
                           fontWeight: FontWeight.w500,
                           fontSize: 18,
                           color: const Color(0xFFFFFFFF),

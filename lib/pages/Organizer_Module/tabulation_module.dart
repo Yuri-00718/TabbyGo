@@ -759,7 +759,7 @@ class _TabulationModuleState extends State<TabulationModule> {
               );
   }
 
-  Widget _buildCategoryScores() {
+  Widget _buildCategoryScores(BuildContext context) {
     return _isLoading
         ? const Center(child: CircularProgressIndicator())
         : _categoryScores.isEmpty
@@ -1045,9 +1045,11 @@ class _TabulationModuleState extends State<TabulationModule> {
               _buildResultsSection(context),
               const SizedBox(height: 20),
               Expanded(child: _buildOverallScores()),
-            ] else if (_selectedView == "categoryScores")
-              Expanded(child: _buildCategoryScores())
-            else
+            ] else if (_selectedView == "categoryScores") ...[
+              _buildResultsSection(context),
+              const SizedBox(height: 20),
+              Expanded(child: _buildCategoryScores(context)),
+            ] else
               Expanded(
                 child: Center(
                   child: Text(
