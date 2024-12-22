@@ -51,11 +51,14 @@ class _TemplateMenusState extends State<TemplateMenus> {
     try {
       final firestore = FirebaseFirestore.instance;
       final firestoreCollection = firestore.collection('templates');
+      final judgesCollection = firestore.collection('judges');
 
+      // Fetch local templates
       final localTemplates = await DatabaseHelper.instance.getTemplates();
       final localTemplateIds =
           localTemplates.map((template) => template['id'].toString()).toSet();
 
+      // Fetch Firestore templates
       final firestoreTemplatesSnapshot = await firestoreCollection.get();
       final firestoreTemplateDocs = firestoreTemplatesSnapshot.docs;
       final firestoreTemplateIds =
@@ -65,72 +68,169 @@ class _TemplateMenusState extends State<TemplateMenus> {
         for (var doc in firestoreTemplateDocs) doc.id: doc.data()
       };
 
-      final templatesToAdd = <Map<String, dynamic>>[];
-      final templatesToUpdate = <Map<String, dynamic>>[];
-      final templatesToDelete = <String>{};
+      // Templates to sync
+      final templatesToAddOrUpdateLocally = <Map<String, dynamic>>[];
+      final templatesToAddToFirestore = <Map<String, dynamic>>[];
+      final templatesToUpdateInFirestore = <Map<String, dynamic>>[];
+      final templatesToDeleteLocally = <String>{};
 
       final synchronizedTemplateIds =
           await DatabaseHelper.instance.getSynchronizedTemplateIds();
 
-      for (final template in localTemplates) {
-        final templateId = template['id'].toString();
-
-        if (firestoreTemplateIds.contains(templateId)) {
-          final firestoreTemplate = firestoreTemplatesMap[templateId];
-          if (firestoreTemplate != null &&
-              !_areTemplatesIdentical(firestoreTemplate, template)) {
-            templatesToUpdate.add(template);
-          }
-        } else {
-          if (!synchronizedTemplateIds.contains(templateId)) {
-            templatesToAdd.add(template);
+      // Restore missing templates locally
+      for (final firestoreTemplateId in firestoreTemplateIds) {
+        if (!localTemplateIds.contains(firestoreTemplateId)) {
+          final missingTemplate = firestoreTemplatesMap[firestoreTemplateId];
+          if (missingTemplate != null) {
+            templatesToAddOrUpdateLocally.add({
+              ...missingTemplate,
+              'id': firestoreTemplateId,
+            });
           }
         }
       }
 
-      final templatesInFirestoreNotInLocal =
-          firestoreTemplateIds.difference(localTemplateIds);
-      templatesToDelete.addAll(templatesInFirestoreNotInLocal);
+      // Process local templates
+      for (final localTemplate in localTemplates) {
+        final templateId = localTemplate['id'].toString();
 
+        if (firestoreTemplateIds.contains(templateId)) {
+          // Check if the template is identical
+          final firestoreTemplate = firestoreTemplatesMap[templateId];
+          if (firestoreTemplate != null &&
+              !_areTemplatesIdentical(firestoreTemplate, localTemplate)) {
+            templatesToUpdateInFirestore.add(localTemplate);
+          }
+        } else {
+          // Add locally missing templates to Firestore
+          if (!synchronizedTemplateIds.contains(templateId)) {
+            templatesToAddToFirestore.add(localTemplate);
+          }
+        }
+      }
+
+      // Identify templates to delete locally
+      templatesToDeleteLocally
+          .addAll(localTemplateIds.difference(firestoreTemplateIds));
+
+      // Firestore batch operations
       final firestoreBatch = firestore.batch();
-      for (final template in templatesToAdd) {
+
+      // Add or update templates in Firestore
+      for (final template in templatesToAddToFirestore) {
         final templateId = template['id'].toString();
-        firestoreBatch.set(firestoreCollection.doc(templateId), template,
-            SetOptions(merge: true));
+        firestoreBatch.set(
+          firestoreCollection.doc(templateId),
+          template,
+          SetOptions(merge: true),
+        );
+
+        // Add unique judges for the template
+        if (template['judges'] != null) {
+          final existingJudgeEmails =
+              await _getExistingJudgeEmails(judgesCollection, templateId);
+          for (final judge in template['judges']) {
+            if (!existingJudgeEmails.contains(judge['email'])) {
+              firestoreBatch.set(
+                judgesCollection.doc(),
+                {
+                  'templateId': templateId,
+                  'eventName': template['eventName'],
+                  'templateCode': template['templateCode'],
+                  'email': judge['email'],
+                  'name': judge['name'],
+                  'role': judge['role'],
+                  'phonenumber': judge['phonenumber'],
+                },
+                SetOptions(merge: true),
+              );
+            }
+          }
+        }
       }
-      for (final template in templatesToUpdate) {
+
+      for (final template in templatesToUpdateInFirestore) {
         final templateId = template['id'].toString();
-        firestoreBatch.set(firestoreCollection.doc(templateId), template,
-            SetOptions(merge: true));
+        firestoreBatch.set(
+          firestoreCollection.doc(templateId),
+          template,
+          SetOptions(merge: true),
+        );
+
+        // Update judges for the template
+        if (template['judges'] != null) {
+          final existingJudgeEmails =
+              await _getExistingJudgeEmails(judgesCollection, templateId);
+          for (final judge in template['judges']) {
+            if (!existingJudgeEmails.contains(judge['email'])) {
+              firestoreBatch.set(
+                judgesCollection.doc(),
+                {
+                  'templateId': templateId,
+                  'eventName': template['eventName'],
+                  'templateCode': template['templateCode'],
+                  'email': judge['email'],
+                  'name': judge['name'],
+                  'role': judge['role'],
+                  'phonenumber': judge['phonenumber'],
+                },
+                SetOptions(merge: true),
+              );
+            }
+          }
+        }
       }
-      if (templatesToAdd.isNotEmpty || templatesToUpdate.isNotEmpty) {
+
+      if (templatesToAddToFirestore.isNotEmpty ||
+          templatesToUpdateInFirestore.isNotEmpty) {
         await firestoreBatch.commit();
       }
-      for (final id in templatesToDelete) {
+
+      // Update local database with missing templates
+      for (final template in templatesToAddOrUpdateLocally) {
+        await DatabaseHelper.instance.insertOrUpdateTemplate(template);
+        await DatabaseHelper.instance
+            .markTemplateAsSynchronized(template['id'].toString());
+      }
+
+      // Delete locally missing templates
+      for (final id in templatesToDeleteLocally) {
         await DatabaseHelper.instance.deleteTemplate(int.parse(id));
       }
 
-      final updatedFirestoreTemplatesData = firestoreTemplateDocs.map((doc) {
-        final data = doc.data();
-        data['id'] = doc.id;
-        return data;
-      }).toList();
+      // Reload templates after sync
+      await _loadTemplates();
 
-      for (final templateData in updatedFirestoreTemplatesData) {
-        final templateId = templateData['id'];
-        if (!synchronizedTemplateIds.contains(templateId)) {
-          await DatabaseHelper.instance.insertOrUpdateTemplate(templateData);
-          await DatabaseHelper.instance.markTemplateAsSynchronized(templateId);
-        }
-      }
-
-      await _loadTemplates(); // Reload templates after sync
+      // Notification for successful sync
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Templates synchronized successfully!')),
+        const SnackBar(
+          content: Text('Templates synced successfully!'),
+          duration: Duration(seconds: 3),
+        ),
       );
     } catch (e) {
-      _handleError('Error syncing templates', e);
+      if (kDebugMode) {
+        print('Error syncing templates: $e');
+      }
+
+      // Notification for sync failure
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Error syncing templates. Please try again.'),
+          duration: Duration(seconds: 3),
+        ),
+      );
     }
+  }
+
+// Helper method to get existing judge emails from the judges collection
+  Future<Set<String>> _getExistingJudgeEmails(
+      CollectionReference judgesCollection, String templateId) async {
+    final judgeQuerySnapshot =
+        await judgesCollection.where('templateId', isEqualTo: templateId).get();
+    return judgeQuerySnapshot.docs
+        .map((doc) => doc['email'].toString())
+        .toSet();
   }
 
 // Helper function to compare templates
@@ -594,88 +694,102 @@ class _TemplateMenusState extends State<TemplateMenus> {
   }
 
   Future<Widget> _buildContentEvents(Map<String, dynamic> template) async {
-    return Container(
-      margin: const EdgeInsets.fromLTRB(0, 25, 0, 16),
-      decoration: BoxDecoration(
-        border: Border.all(color: const Color(0xFFEFEEFC)),
-        borderRadius: BorderRadius.circular(20),
-        color: const Color(0xFFFFFFFF),
-      ),
-      padding: const EdgeInsets.fromLTRB(20, 13, 25, 13),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            child: Column(
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // Check if the screen width is for web
+        final isWebView = constraints.maxWidth > 600;
+
+        return Container(
+          margin: const EdgeInsets.fromLTRB(0, 25, 0, 16),
+          padding: const EdgeInsets.fromLTRB(20, 13, 25, 13),
+          decoration: BoxDecoration(
+            border: Border.all(color: const Color(0xFFEFEEFC)),
+            borderRadius: BorderRadius.circular(20),
+            color: const Color(0xFFFFFFFF),
+          ),
+          constraints: isWebView
+              ? const BoxConstraints(maxWidth: 800) // Limit max width on web
+              : null,
+          child: Center(
+            child: Row(
+              mainAxisAlignment: isWebView
+                  ? MainAxisAlignment.spaceBetween // Spread content in web view
+                  : MainAxisAlignment.start, // Stack content in mobile view
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
-                  margin: const EdgeInsets.only(bottom: 10),
-                  child: Text(
-                    template['eventName'] ?? 'No Title',
-                    style: GoogleFonts.poppins(
-                      fontWeight: FontWeight.w500,
-                      fontSize: 20,
-                      height: 1.5,
-                      color: const Color(0xFF0C092A),
-                    ),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        margin: const EdgeInsets.only(bottom: 10),
+                        child: Text(
+                          template['eventName'] ?? 'No Title',
+                          style: GoogleFonts.poppins(
+                            fontWeight: FontWeight.w500,
+                            fontSize: isWebView ? 18 : 20, // Adjust font size
+                            height: 1.5,
+                            color: const Color(0xFF0C092A),
+                          ),
+                        ),
+                      ),
+                      Text(
+                        'Event Code Template: ${template['templateCode'] ?? 'No Code'}',
+                        style: GoogleFonts.poppins(
+                          fontWeight: FontWeight.w400,
+                          fontSize: isWebView ? 14 : 16, // Adjust font size
+                          height: 1.5,
+                          color: const Color(0xFF858494),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                Text(
-                  'Event Code Template: ${template['templateCode'] ?? 'No Code'}',
-                  style: GoogleFonts.poppins(
-                    fontWeight: FontWeight.w400,
-                    fontSize: 14,
-                    height: 1.5,
-                    color: const Color(0xFF858494),
+                PopupMenuButton<String>(
+                  icon: SizedBox(
+                    width: 35,
+                    height: 35,
+                    child: Image.asset(
+                      'assets/images/menu.png',
+                      color: const Color(0xFF6A5AE0),
+                    ),
                   ),
+                  itemBuilder: (context) {
+                    return [
+                      const PopupMenuItem<String>(
+                        value: 'Edit',
+                        child: Text('Edit'),
+                      ),
+                      const PopupMenuItem<String>(
+                        value: 'Delete',
+                        child: Text('Delete'),
+                      ),
+                      const PopupMenuItem<String>(
+                        value: 'Send Code',
+                        child: Text('Send Code'),
+                      ),
+                    ];
+                  },
+                  onSelected: (value) async {
+                    switch (value) {
+                      case 'Edit':
+                        _editTemplate(template);
+                        break;
+                      case 'Delete':
+                        _deleteTemplate(template['id']);
+                        break;
+                      case 'Send Code':
+                        await _sendTemplateCodeToJudges(
+                            context, template['templateCode']);
+                        break;
+                    }
+                  },
                 ),
               ],
             ),
           ),
-          PopupMenuButton<String>(
-            icon: SizedBox(
-              width: 35,
-              height: 35,
-              child: Image.asset(
-                'assets/images/menu.png',
-                color: const Color(0xFF6A5AE0),
-              ),
-            ),
-            itemBuilder: (context) {
-              return [
-                const PopupMenuItem<String>(
-                  value: 'Edit',
-                  child: Text('Edit'),
-                ),
-                const PopupMenuItem<String>(
-                  value: 'Delete',
-                  child: Text('Delete'),
-                ),
-                const PopupMenuItem<String>(
-                  value: 'Send Code',
-                  child: Text('Send Code'),
-                ),
-              ];
-            },
-            onSelected: (value) async {
-              switch (value) {
-                case 'Edit':
-                  _editTemplate(template);
-                  break;
-                case 'Delete':
-                  _deleteTemplate(template['id']);
-                  break;
-                case 'Send Code':
-                  await _sendTemplateCodeToJudges(
-                      context, template['templateCode']);
-                  break;
-              }
-            },
-          )
-        ],
-      ),
+        );
+      },
     );
   }
 

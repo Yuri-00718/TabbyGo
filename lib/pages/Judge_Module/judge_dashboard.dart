@@ -86,12 +86,17 @@ class _DashboardState extends State<Dashboard> {
       builder: (BuildContext context) {
         return AlertDialog(
           backgroundColor: const Color.fromARGB(255, 132, 96, 214),
-          title: Text(
-            'Enter Template Code',
-            style: GoogleFonts.poppins(
-              fontWeight: FontWeight.bold,
-              fontSize: 24,
-              color: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: Center(
+            child: Text(
+              'Enter Template Code',
+              style: GoogleFonts.poppins(
+                fontWeight: FontWeight.bold,
+                fontSize: 24,
+                color: Colors.white,
+              ),
             ),
           ),
           content: Column(
@@ -102,7 +107,7 @@ class _DashboardState extends State<Dashboard> {
                 children: List.generate(
                   4,
                   (index) => Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 7.0),
+                    padding: const EdgeInsets.symmetric(horizontal: 8.0),
                     child: SizedBox(
                       width: 50,
                       height: 60,
@@ -110,22 +115,33 @@ class _DashboardState extends State<Dashboard> {
                         controller: codeControllers[index],
                         keyboardType: TextInputType.number,
                         maxLength: 1,
-                        style: GoogleFonts.poppins(color: Colors.black),
+                        style: GoogleFonts.poppins(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 18,
+                          color: Colors.black,
+                        ),
                         textAlign: TextAlign.center,
                         decoration: InputDecoration(
-                          hintText: '0',
-                          hintStyle: GoogleFonts.poppins(color: Colors.grey),
                           filled: true,
                           fillColor: Colors.white,
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                            borderSide:
-                                const BorderSide(color: Colors.black, width: 1),
-                          ),
                           counterText: '',
+                          hintText: '0',
+                          hintStyle: GoogleFonts.poppins(color: Colors.grey),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide.none,
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: const BorderSide(color: Colors.grey),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: const BorderSide(color: Colors.black),
+                          ),
                         ),
                         onChanged: (value) {
-                          if (value.length == 1 && index < 3) {
+                          if (value.isNotEmpty && index < 3) {
                             FocusScope.of(context).nextFocus();
                           } else if (value.isEmpty && index > 0) {
                             FocusScope.of(context).previousFocus();
@@ -136,27 +152,45 @@ class _DashboardState extends State<Dashboard> {
                   ),
                 ),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 24),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
+                ),
+                onPressed: () async {
+                  if (!context.mounted) return;
+
+                  String enteredCode = codeControllers
+                      .map((controller) => controller.text)
+                      .join();
+                  await _validateCode(context, enteredCode);
+                },
+                child: Text(
+                  'Submit',
+                  style: GoogleFonts.poppins(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                    color: const Color.fromARGB(255, 132, 96, 214),
+                  ),
+                ),
+              ),
+              TextButton(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                  Navigator.of(context).pop();
+                },
+                child: Text(
+                  'Cancel',
+                  style: GoogleFonts.poppins(color: Colors.white),
+                ),
+              ),
             ],
           ),
-          actions: <Widget>[
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-              child: const Text('Cancel'),
-            ),
-            TextButton(
-              onPressed: () async {
-                if (!context.mounted) return;
-
-                String enteredCode =
-                    codeControllers.map((controller) => controller.text).join();
-                await _validateCode(context, enteredCode);
-              },
-              child: const Text('Submit'),
-            ),
-          ],
         );
       },
     );
@@ -165,54 +199,54 @@ class _DashboardState extends State<Dashboard> {
   Future<void> _validateCode(BuildContext context, String enteredCode) async {
     String trimmedEnteredCode = enteredCode.trim();
 
-    String? templateCode =
-        await _getTemplateCodeFromFirestore(trimmedEnteredCode);
+    try {
+      String? templateCode =
+          await _getTemplateCodeFromFirestore(trimmedEnteredCode);
 
-    if (templateCode == null) {
+      if (templateCode == trimmedEnteredCode) {
+        // Save the validated code locally
+        await DatabaseHelper.instance.saveTemplateCode(trimmedEnteredCode);
+
+        setState(() {
+          _isCodeVerified = true;
+        });
+
+        Navigator.of(context).pop();
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Template code verified successfully!')),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Invalid code! Please try again.')),
+        );
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error validating template code: $e');
+      }
+
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-            content: Text(
-                'Error retrieving template code. Please check Firestore.')),
-      );
-      return;
-    }
-
-    if (templateCode == trimmedEnteredCode) {
-      await DatabaseHelper.instance.saveTemplateCode(trimmedEnteredCode);
-
-      setState(() {
-        _isCodeVerified = true;
-      });
-      Navigator.of(context).pop();
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Invalid code! Please try again.')),
+        const SnackBar(content: Text('Error validating template code.')),
       );
     }
   }
 
   Future<String?> _getTemplateCodeFromFirestore(String enteredCode) async {
     try {
-      var querySnapshot = await FirebaseFirestore.instance
+      final snapshot = await FirebaseFirestore.instance
           .collection('templates')
           .where('templateCode', isEqualTo: enteredCode)
           .limit(1)
           .get();
 
-      if (querySnapshot.docs.isNotEmpty) {
-        var document = querySnapshot.docs.first;
-
-        if (document.data().containsKey('templateCode')) {
-          return document['templateCode'] as String?;
-        } else {
-          return null;
-        }
-      } else {
-        return null;
+      if (snapshot.docs.isNotEmpty) {
+        return snapshot.docs.first['templateCode'];
       }
     } catch (e) {
-      return null;
+      debugPrint('Error fetching template code: $e');
     }
+    return null; // Return null if code is not found
   }
 }
 

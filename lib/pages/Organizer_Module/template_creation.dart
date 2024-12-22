@@ -191,6 +191,8 @@ class _TemplateCreationState extends State<TemplateCreation> {
           'Weightage': TextEditingController(
               text: category['Weightage']?.toString() ?? '0'),
           'criteriaList': [],
+          'assignedJudge':
+              category['AssignedJudge'] ?? '', // Load assigned judge
         };
 
         // Ensure the criteria are accessed correctly
@@ -503,7 +505,7 @@ class _TemplateCreationState extends State<TemplateCreation> {
       };
     }).toList();
 
-// Convert categories details to list of maps, including criteria
+// Convert categories details to list of maps, including criteria and assigned judge
     List<Map<String, dynamic>> categoriesToSave = [];
     for (var category in _category) {
       List<Map<String, dynamic>> criteriaList = [];
@@ -533,6 +535,8 @@ class _TemplateCreationState extends State<TemplateCreation> {
         'Category': category['Category'].text ?? '',
         'Criteria': criteriaList,
         'Weightage': totalWeightageForCategory, // Store as integer
+        'AssignedJudge':
+            category['assignedJudge'] ?? '', // Include assigned judge
       });
     }
 
@@ -1200,6 +1204,21 @@ class _TemplateCreationState extends State<TemplateCreation> {
                 isWeightage: false,
               ),
               const SizedBox(height: 8),
+              // Enhanced dropdown for assigning a judge
+              _buildTextField(
+                'Assign Judge',
+                TextEditingController(), // Placeholder controller
+                isDropdown: true,
+                dropdownItems:
+                    _judges.map((judge) => judge['name']!.text).toList(),
+                initialValue: _category[i]['assignedJudge'],
+                onChanged: (selectedJudge) {
+                  setState(() {
+                    _category[i]['assignedJudge'] = selectedJudge;
+                  });
+                },
+              ),
+              const SizedBox(height: 16),
               for (int j = 0;
                   j < (_category[i]['criteriaList'] ?? []).length;
                   j++) ...[
@@ -1293,6 +1312,7 @@ class _TemplateCreationState extends State<TemplateCreation> {
                   _category.add({
                     'Category': categoryController,
                     'criteriaList': [],
+                    'assignedJudge': null, // Initialize assigned judge as null
                   });
                 });
               },

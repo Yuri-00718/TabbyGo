@@ -262,167 +262,182 @@ class _AuthenticationScreenState extends State<AuthenticationScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFF6A5AE0),
       body: SingleChildScrollView(
-        child: Column(
-          children: [
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(20.0),
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.only(
-                  bottomLeft: Radius.circular(30),
-                  bottomRight: Radius.circular(30),
-                ),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const SizedBox(height: 40),
-                  Row(
-                    children: [
-                      GestureDetector(
-                        onTap: () {
-                          Navigator.pop(context);
-                        },
-                        child: ColorFiltered(
-                          colorFilter: const ColorFilter.mode(
-                            Color(0xFF6A5AE0), // Arrow color
-                            BlendMode.srcIn,
-                          ),
-                          child: Image.asset(
-                            'assets/images/Back_Arrow.png',
-                            width: 30,
-                            height: 30,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Text(
-                          'Welcome ${widget.role}!',
-                          style: GoogleFonts.poppins(
-                            color: const Color(0xFF6A5AE0),
-                            fontSize: 28,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  Text(
-                    'Please log in to access your account.',
-                    style: GoogleFonts.poppins(
-                      color: Colors.black,
-                      fontSize: 16,
-                    ),
-                  ),
-                  const SizedBox(height: 50),
-                  if (_checkingConnection)
-                    const Center(child: CircularProgressIndicator())
-                  else
-                    Text(
-                      _isOnline
-                          ? 'Connected to the Internet'
-                          : 'You are using Tabby Offline Mode',
-                      style: TextStyle(
-                        color: _isOnline ? Colors.green : Colors.red,
-                        fontWeight: FontWeight.bold,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            // Define breakpoints for responsiveness
+            double contentWidth = constraints.maxWidth > 1200
+                ? 800
+                : constraints.maxWidth > 800
+                    ? 600
+                    : constraints.maxWidth * 1;
+
+            return Column(
+              children: [
+                Center(
+                  child: Container(
+                    width: contentWidth,
+                    padding: const EdgeInsets.all(20.0),
+                    decoration: const BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.only(
+                        bottomLeft: Radius.circular(30),
+                        bottomRight: Radius.circular(30),
                       ),
                     ),
-                  const SizedBox(height: 20),
-                  Form(
-                    key: _formKey,
                     child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        _buildTextField(
-                          '${widget.role} Username or Email',
-                          icon: Icons.person_outline,
-                          controller: _usernameController,
-                        ),
-                        const SizedBox(height: 20),
-                        _buildTextField(
-                          'Password',
-                          icon: Icons.lock_outline,
-                          controller: _passwordController,
-                          isPassword: true,
-                        ),
                         const SizedBox(height: 40),
-                        Center(
-                          child: ElevatedButton(
-                            onPressed: _submitForm,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor:
-                                  const Color.fromARGB(255, 121, 100, 216),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(20),
-                              ),
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 40, vertical: 15),
-                            ),
-                            child: Text(
-                              widget.isSignUp ? 'Sign Up' : 'Log In',
-                              style: GoogleFonts.poppins(
-                                fontSize: 18,
-                                fontWeight: FontWeight.w600,
-                                color: Colors.white,
+                        Row(
+                          children: [
+                            GestureDetector(
+                              onTap: () {
+                                Navigator.pop(context);
+                              },
+                              child: ColorFiltered(
+                                colorFilter: const ColorFilter.mode(
+                                  Color(0xFF6A5AE0),
+                                  BlendMode.srcIn,
+                                ),
+                                child: Image.asset(
+                                  'assets/images/Back_Arrow.png',
+                                  width: 30,
+                                  height: 30,
+                                ),
                               ),
                             ),
-                          ),
-                        ),
-                        const SizedBox(height: 10),
-                        Center(
-                          child: Column(
-                            children: [
-                              const Divider(
-                                color: Color(0xFF6A5AE0),
-                                thickness: 1,
-                                indent: 50,
-                                endIndent: 50,
-                              ),
-                              const SizedBox(height: 10),
-                              Text(
-                                'Or Login Using',
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                'Welcome ${widget.role}!',
                                 style: GoogleFonts.poppins(
                                   color: const Color(0xFF6A5AE0),
-                                  fontSize: 16,
+                                  fontSize: 28,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
+                        Text(
+                          'Please log in to access your account.',
+                          style: GoogleFonts.poppins(
+                            color: Colors.black,
+                            fontSize: 16,
+                          ),
+                        ),
+                        const SizedBox(height: 50),
+                        if (_checkingConnection)
+                          const Center(child: CircularProgressIndicator())
+                        else
+                          Text(
+                            _isOnline
+                                ? 'Connected to the Internet'
+                                : 'You are using Tabby Offline Mode',
+                            style: TextStyle(
+                              color: _isOnline ? Colors.green : Colors.red,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        const SizedBox(height: 20),
+                        Form(
+                          key: _formKey,
+                          child: Column(
+                            children: [
+                              _buildTextField(
+                                '${widget.role} Username or Email',
+                                icon: Icons.person_outline,
+                                controller: _usernameController,
+                              ),
+                              const SizedBox(height: 20),
+                              _buildTextField(
+                                'Password',
+                                icon: Icons.lock_outline,
+                                controller: _passwordController,
+                                isPassword: true,
+                              ),
+                              const SizedBox(height: 40),
+                              Center(
+                                child: ElevatedButton(
+                                  onPressed: _submitForm,
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: const Color.fromARGB(
+                                        255, 121, 100, 216),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(20),
+                                    ),
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 40, vertical: 15),
+                                  ),
+                                  child: Text(
+                                    widget.isSignUp ? 'Sign Up' : 'Log In',
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.w600,
+                                      color: Colors.white,
+                                    ),
+                                  ),
                                 ),
                               ),
                               const SizedBox(height: 10),
-                              GestureDetector(
-                                onTap: _signInWithGoogle,
-                                child: Container(
-                                  padding: const EdgeInsets.all(10),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white,
-                                    borderRadius: BorderRadius.circular(30),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: Colors.grey.withOpacity(0.5),
-                                        spreadRadius: 5,
-                                        blurRadius: 7,
-                                        offset: const Offset(0, 3),
+                              Center(
+                                child: Column(
+                                  children: [
+                                    const Divider(
+                                      color: Color(0xFF6A5AE0),
+                                      thickness: 1,
+                                      indent: 50,
+                                      endIndent: 50,
+                                    ),
+                                    const SizedBox(height: 10),
+                                    Text(
+                                      'Or Login Using',
+                                      style: GoogleFonts.poppins(
+                                        color: const Color(0xFF6A5AE0),
+                                        fontSize: 16,
                                       ),
-                                    ],
-                                  ),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Image.asset(
-                                        'assets/images/Google_Icon.png',
-                                        height: 30,
-                                        width: 30,
-                                      ),
-                                      const SizedBox(width: 10),
-                                      Text(
-                                        'Google',
-                                        style: GoogleFonts.poppins(
-                                          fontSize: 18,
-                                          fontWeight: FontWeight.w500,
+                                    ),
+                                    const SizedBox(height: 10),
+                                    GestureDetector(
+                                      onTap: _signInWithGoogle,
+                                      child: Container(
+                                        padding: const EdgeInsets.all(10),
+                                        decoration: BoxDecoration(
+                                          color: Colors.white,
+                                          borderRadius:
+                                              BorderRadius.circular(30),
+                                          boxShadow: [
+                                            BoxShadow(
+                                              color:
+                                                  Colors.grey.withOpacity(0.5),
+                                              spreadRadius: 5,
+                                              blurRadius: 7,
+                                              offset: const Offset(0, 3),
+                                            ),
+                                          ],
+                                        ),
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Image.asset(
+                                              'assets/images/Google_Icon.png',
+                                              height: 30,
+                                              width: 30,
+                                            ),
+                                            const SizedBox(width: 10),
+                                            Text(
+                                              'Google',
+                                              style: GoogleFonts.poppins(
+                                                fontSize: 18,
+                                                fontWeight: FontWeight.w500,
+                                              ),
+                                            ),
+                                          ],
                                         ),
                                       ),
-                                    ],
-                                  ),
+                                    ),
+                                  ],
                                 ),
                               ),
                             ],
@@ -431,10 +446,10 @@ class _AuthenticationScreenState extends State<AuthenticationScreen> {
                       ],
                     ),
                   ),
-                ],
-              ),
-            ),
-          ],
+                ),
+              ],
+            );
+          },
         ),
       ),
     );

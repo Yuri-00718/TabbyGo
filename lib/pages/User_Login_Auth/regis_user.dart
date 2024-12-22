@@ -112,127 +112,130 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFF6A5AE0),
       body: SingleChildScrollView(
-        child: Column(
-          children: [
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(20.0),
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.only(
-                  bottomLeft: Radius.circular(30),
-                  bottomRight: Radius.circular(30),
-                ),
-              ),
-              height: MediaQuery.of(context).size.height *
-                  0.6, // Adjust the height as needed
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const SizedBox(height: 40),
-                  Row(
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 600),
+            child: Column(
+              children: [
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(20.0),
+                  decoration: const BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.only(
+                      bottomLeft: Radius.circular(30),
+                      bottomRight: Radius.circular(30),
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      GestureDetector(
-                        onTap: () {
-                          Navigator.pop(context);
-                        },
-                        child: ColorFiltered(
-                          colorFilter: const ColorFilter.mode(
-                            Color(0xFF6A5AE0), // Arrow color
-                            BlendMode.srcIn,
+                      const SizedBox(height: 40),
+                      Row(
+                        children: [
+                          GestureDetector(
+                            onTap: () {
+                              Navigator.pop(context);
+                            },
+                            child: ColorFiltered(
+                              colorFilter: const ColorFilter.mode(
+                                Color(0xFF6A5AE0), // Arrow color
+                                BlendMode.srcIn,
+                              ),
+                              child: Image.asset(
+                                'assets/images/Back_Arrow.png',
+                                width: 30,
+                                height: 30,
+                              ),
+                            ),
                           ),
-                          child: Image.asset(
-                            'assets/images/Back_Arrow.png',
-                            width: 30,
-                            height: 30,
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              'Register as ${widget.role}!',
+                              style: GoogleFonts.poppins(
+                                color: const Color(0xFF6A5AE0),
+                                fontSize: 28,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
                           ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      Text(
+                        'Please sign up to create your account.',
+                        style: GoogleFonts.poppins(
+                          color: Colors.black,
+                          fontSize: 16,
                         ),
                       ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Text(
-                          'Register as ${widget.role}!',
-                          style: GoogleFonts.poppins(
-                            color: const Color(0xFF6A5AE0),
-                            fontSize: 28,
+                      const SizedBox(height: 50),
+                      if (_checkingConnection)
+                        const Center(child: CircularProgressIndicator())
+                      else
+                        Text(
+                          _isOnline
+                              ? 'Connected to the Internet'
+                              : 'You are using Tabby Offline Mode',
+                          style: TextStyle(
+                            color: _isOnline ? Colors.green : Colors.red,
                             fontWeight: FontWeight.bold,
                           ),
+                        ),
+                      const SizedBox(height: 20),
+                      Form(
+                        key: _formKey,
+                        child: Column(
+                          children: [
+                            // Email Input Field
+                            _buildTextField(
+                              'Email',
+                              icon: Icons.email_outlined,
+                              controller: _emailController,
+                            ),
+                            const SizedBox(height: 20),
+
+                            // Password Input Field
+                            _buildTextField(
+                              'Password',
+                              icon: Icons.lock_outline,
+                              controller: _passwordController,
+                              isPassword: true,
+                            ),
+                            const SizedBox(height: 40),
+
+                            // Register Button
+                            Center(
+                              child: ElevatedButton(
+                                onPressed: _register,
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFF6A5AE0),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(20),
+                                  ),
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 40, vertical: 15),
+                                ),
+                                child: Text(
+                                  'Register',
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 10),
-                  Text(
-                    'Please sign up to create your account.',
-                    style: GoogleFonts.poppins(
-                      color: Colors.black,
-                      fontSize: 16,
-                    ),
-                  ),
-                  const SizedBox(height: 50),
-                  if (_checkingConnection)
-                    const Center(child: CircularProgressIndicator())
-                  else
-                    Text(
-                      _isOnline
-                          ? 'Connected to the Internet'
-                          : 'You are using Tabby Offline Mode',
-                      style: TextStyle(
-                        color: _isOnline ? Colors.green : Colors.red,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  const SizedBox(height: 20),
-                  Form(
-                    key: _formKey,
-                    child: Column(
-                      children: [
-                        // Email Input Field
-                        _buildTextField(
-                          'Email',
-                          icon: Icons.email_outlined,
-                          controller: _emailController,
-                        ),
-                        const SizedBox(height: 20),
-
-                        // Password Input Field
-                        _buildTextField(
-                          'Password',
-                          icon: Icons.lock_outline,
-                          controller: _passwordController,
-                          isPassword: true,
-                        ),
-                        const SizedBox(height: 40),
-
-                        // Register Button
-                        Center(
-                          child: ElevatedButton(
-                            onPressed: _register,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF6A5AE0),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(20),
-                              ),
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 40, vertical: 15),
-                            ),
-                            child: Text(
-                              'Register',
-                              style: GoogleFonts.poppins(
-                                fontSize: 18,
-                                fontWeight: FontWeight.w600,
-                                color: Colors.white,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );

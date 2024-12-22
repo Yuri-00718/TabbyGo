@@ -1,6 +1,11 @@
+// ignore_for_file: depend_on_referenced_packages
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-// ignore: depend_on_referenced_packages
 import 'package:firebase_core/firebase_core.dart';
+import 'package:sqflite/sqflite.dart'; // Import SQLite and related packages
+// For file path operations
+import 'package:sqflite_common_ffi_web/sqflite_ffi_web.dart'; // For Web FFI support
+
 // Organizer Module Imports
 import 'package:tabby/pages/Organizer_Module/dash_board.dart';
 import 'package:tabby/pages/Organizer_Module/user_management.dart';
@@ -25,7 +30,31 @@ import 'package:tabby/pages/Judge_Module/scoresheet.dart';
 // Main function with Firebase initialization
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp();
+
+  // Initialize Firebase with options
+  try {
+    await Firebase.initializeApp(
+      options: const FirebaseOptions(
+        apiKey: "AIzaSyAFmzDGAszbYULvgPPDhrJjk-TxFDEJkCc",
+        authDomain: "tabbyauth.firebaseapp.com",
+        projectId: "tabbyauth",
+        storageBucket: "tabbyauth.appspot.com",
+        messagingSenderId: "175547730349",
+        appId: "1:175547730349:web:848c4fbd099eda31cb7924",
+        measurementId: "G-BZEDZ8EWDC",
+      ),
+    );
+  } catch (e) {
+    if (kDebugMode) {
+      print("Firebase initialization error: $e");
+    }
+  }
+
+  // Set the database factory for FFI Web
+  if (kIsWeb) {
+    databaseFactory = databaseFactoryFfiWeb; // Set FFI Web factory for SQLite
+  }
+
   runApp(const MyApp());
 }
 

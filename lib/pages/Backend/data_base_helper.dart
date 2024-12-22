@@ -8,6 +8,7 @@ import 'package:flutter/foundation.dart';
 import 'package:crypto/crypto.dart';
 // ignore: depend_on_referenced_packages
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:sqflite_common_ffi_web/sqflite_ffi_web.dart';
 
 class DatabaseHelper {
   static final DatabaseHelper instance = DatabaseHelper._privateConstructor();
@@ -22,7 +23,15 @@ class DatabaseHelper {
   }
 
   Future<Database> _initDatabase() async {
-    String path = join(await getDatabasesPath(), 'templates.db');
+    String path;
+
+    if (kIsWeb) {
+      path = join(await getDatabasesPath(), 'templates.db');
+      databaseFactory = databaseFactoryFfiWeb; // Initialize FFI Web factory
+    } else {
+      path = join(await getDatabasesPath(), 'templates.db');
+    }
+
     return await openDatabase(
       path,
       version: 9,
@@ -477,24 +486,48 @@ class DatabaseHelper {
     }
   }
 
-  Future<List<Map<String, dynamic>>> getJudges() async {
-    final db = await database;
+  Future<List<Map<String, dynamic>>> getJudgesByTemplate() async {
+    final db = await database; // Initialize your database
     try {
-      final results = await db.query('judges');
-      return results.map((result) {
-        return {
-          'id': result['id'],
-          'name': result['name'] ?? '',
-          'username': result['username'] ?? '',
-          'password': result['password'] ?? '',
-          'template': result['template'] ?? '',
-          'role': result['role'] ?? '',
-          'image': result['image'] ?? '',
-        };
-      }).toList();
+      // Query the 'templates' table to get all templates
+      final results = await db.query('templates');
+
+      List<Map<String, dynamic>> allJudges = [];
+      for (var result in results) {
+        final judgesJson = result['judges'];
+        final eventName = result['eventName'] ?? 'Unknown Event';
+
+        if (judgesJson is String) {
+          try {
+            // Decode the judges JSON
+            final judges =
+                List<Map<String, dynamic>>.from(jsonDecode(judgesJson));
+
+            // Attach the event name to each judge
+            final enrichedJudges = judges.map((judge) {
+              return {
+                ...judge,
+                'eventName': eventName, // Add the event name
+              };
+            }).toList();
+
+            allJudges.addAll(enrichedJudges);
+          } catch (e) {
+            if (kDebugMode) {
+              print('Error decoding judges JSON: $e');
+            }
+          }
+        } else {
+          if (kDebugMode) {
+            print('Unexpected type for judges: ${judgesJson.runtimeType}');
+          }
+        }
+      }
+
+      return allJudges;
     } catch (e) {
       if (kDebugMode) {
-        print('Error retrieving judges: $e');
+        print('Error retrieving judges from templates: $e');
       }
       rethrow;
     }
@@ -567,126 +600,6 @@ class DatabaseHelper {
     } catch (e) {
       if (kDebugMode) {
         print('Error deleting judge: $e');
-      }
-      rethrow;
-    }
-  }
-
-  //admin methods
-  Future<int> insertAdmin(Map<String, dynamic> admin) async {
-    final db = await database;
-    try {
-      final encodedAdmin = {
-        'name': admin['name'] ?? '',
-        'username': admin['username'] ?? '',
-        'password': _hashPassword(admin['password'] ?? ''),
-        'raw_password': admin['password'] ?? '',
-        'role': admin['role'] ?? '',
-        'image': admin['image'] ?? '',
-      };
-      return await db.insert(
-        'admins',
-        encodedAdmin,
-        conflictAlgorithm: ConflictAlgorithm.replace,
-      );
-    } catch (e) {
-      if (kDebugMode) {
-        print('Error inserting admin: $e');
-      }
-      rethrow;
-    }
-  }
-
-  Future<List<Map<String, dynamic>>> getAdmins() async {
-    final db = await database;
-    try {
-      final results = await db.query('admins');
-      return results.map((result) {
-        return {
-          'id': result['id'],
-          'name': result['name'] ?? '',
-          'username': result['username'] ?? '',
-          'password': result['raw_password'] ?? '',
-          'role': result['role'] ?? '',
-          'image': result['image'] ?? '',
-        };
-      }).toList();
-    } catch (e) {
-      if (kDebugMode) {
-        print('Error retrieving admins: $e');
-      }
-      rethrow;
-    }
-  }
-
-  Future<Map<String, dynamic>?> getAdminByUsername(String username) async {
-    final db = await database;
-    try {
-      final results = await db.query(
-        'admins',
-        where: 'username = ?',
-        whereArgs: [username],
-      );
-      if (results.isNotEmpty) {
-        final admin = results.first;
-        return {
-          'id': admin['id'],
-          'name': admin['name'] ?? '',
-          'username': admin['username'] ?? '',
-          'password': admin['raw_password'] ?? '',
-          'role': admin['role'] ?? '',
-          'image': admin['image'] ?? '',
-        };
-      }
-      return null;
-    } catch (e) {
-      if (kDebugMode) {
-        print('Error retrieving admin by username: $e');
-      }
-      rethrow;
-    }
-  }
-
-  Future<int> updateAdmin(int id, Map<String, dynamic> adminData) async {
-    final db = await database;
-    final existingAdmins = await db.query(
-      'admins',
-      where: 'id = ?',
-      whereArgs: [id],
-    );
-    if (existingAdmins.isEmpty) {
-      throw Exception('Admin with ID $id not found');
-    }
-    final existingAdmin = existingAdmins.first;
-    final encodedAdmin = {
-      'name': adminData['name'] ?? existingAdmin['name'],
-      'username': adminData['username'] ?? existingAdmin['username'],
-      'password': adminData['password'] != null
-          ? _hashPassword(adminData['password'])
-          : existingAdmin['password'],
-      'raw_password': adminData['password'] ?? existingAdmin['raw_password'],
-      'role': adminData['role'] ?? existingAdmin['role'],
-      'image': adminData['image'] ?? existingAdmin['image'],
-    };
-    return await db.update(
-      'admins',
-      encodedAdmin,
-      where: 'id = ?',
-      whereArgs: [id],
-    );
-  }
-
-  Future<int> deleteAdmin(int id) async {
-    final db = await database;
-    try {
-      return await db.delete(
-        'admins',
-        where: 'id = ?',
-        whereArgs: [id],
-      );
-    } catch (e) {
-      if (kDebugMode) {
-        print('Error deleting admin: $e');
       }
       rethrow;
     }

@@ -1,12 +1,11 @@
-// ignore_for_file: depend_on_referenced_packages, library_private_types_in_public_api, prefer_const_declarations
+// ignore_for_file: depend_on_referenced_packages, library_private_types_in_public_api
+
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:tabby/pages/Backend/data_base_helper.dart';
-import 'package:tabby/pages/Organizer_Module/user_admin_creation.dart';
-import 'package:tabby/pages/Organizer_Module/user_judge_creation.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 
 class UserManagement extends StatefulWidget {
   const UserManagement({super.key});
@@ -18,13 +17,11 @@ class UserManagement extends StatefulWidget {
 class _UserManagementState extends State<UserManagement> {
   bool _isJudgesSelected = true;
   late Future<List<Map<String, dynamic>>> _judgesFuture;
-  late Future<List<Map<String, dynamic>>> _adminsFuture;
 
   @override
   void initState() {
     super.initState();
     _judgesFuture = _fetchJudges();
-    _adminsFuture = _fetchAdmins();
   }
 
   @override
@@ -49,85 +46,10 @@ class _UserManagementState extends State<UserManagement> {
               _buildEventButtons(),
               const SizedBox(height: 19),
               Expanded(
-                child: _isJudgesSelected
-                    ? _buildJudgeListSection()
-                    : _buildAdminListSection(),
+                child: _buildJudgeListSection(),
               ),
             ],
           ),
-        ),
-      ),
-      floatingActionButton: Container(
-        width: 150,
-        height: 50,
-        decoration: BoxDecoration(
-          border: Border.all(
-            color: const Color.fromARGB(255, 165, 164, 164),
-            width: 1,
-          ),
-          borderRadius: BorderRadius.circular(25),
-          color: const Color(0xFF6A5AE0),
-        ),
-        child: FloatingActionButton(
-          onPressed: () async {
-            final page = const JudgeCreation(role: 'Add Judge +', judge: {});
-
-            // Show loading dialog
-            showDialog(
-              context: context,
-              barrierDismissible: false,
-              builder: (context) =>
-                  const Center(child: CircularProgressIndicator()),
-            );
-
-            final result = await Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => page),
-            );
-
-            // ignore: use_build_context_synchronously
-            Navigator.pop(context); // Dismiss the loading dialog
-
-            if (result != null) {
-              setState(() {
-                _judgesFuture = _fetchJudges();
-              });
-            }
-          },
-          backgroundColor: Colors.transparent,
-          elevation: 0,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(25),
-          ),
-          child: Center(
-            child: Text(
-              'Add Judge +',
-              style: GoogleFonts.poppins(
-                fontWeight: FontWeight.w500,
-                fontSize: 14,
-                color: Colors.white,
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ),
-        ),
-      ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
-      bottomNavigationBar: BottomAppBar(
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            ElevatedButton(
-              onPressed: _syncData,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF6A5AE0),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(25),
-                ),
-              ),
-              child: const Text('Sync Data'),
-            ),
-          ],
         ),
       ),
     );
@@ -261,8 +183,6 @@ class _UserManagementState extends State<UserManagement> {
     setState(() {
       if (_isJudgesSelected) {
         _judgesFuture = _fetchJudges();
-      } else {
-        _adminsFuture = _fetchAdmins();
       }
     });
   }
@@ -298,39 +218,10 @@ class _UserManagementState extends State<UserManagement> {
     );
   }
 
-  Widget _buildAdminListSection() {
-    return RefreshIndicator(
-      onRefresh: _handleRefresh,
-      child: FutureBuilder<List<Map<String, dynamic>>>(
-        future: _adminsFuture,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          } else if (snapshot.hasError) {
-            return Center(child: Text('Error: ${snapshot.error}'));
-          } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-            return const Center(child: Text('No admins found.'));
-          } else {
-            final admins = snapshot.data!;
-            return ListView.builder(
-              padding: EdgeInsets.zero,
-              itemCount: admins.length,
-              itemBuilder: (context, index) {
-                final admin = admins[index];
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 16.0),
-                  child: _buildUserCard(admin, 'Admin'),
-                );
-              },
-            );
-          }
-        },
-      ),
-    );
-  }
-
   Widget _buildUserCard(Map<String, dynamic> user, String type) {
-    // Determine the image path, if available
+    final name = user['name'] ?? 'Unknown';
+    final role = user['role'] ?? type;
+    final template = user['eventName'] ?? 'No event assigned';
     final imagePath = user['image'] ?? '';
 
     return GestureDetector(
@@ -343,76 +234,34 @@ class _UserManagementState extends State<UserManagement> {
           padding: const EdgeInsets.all(16.0),
           child: Row(
             children: [
-              // Display the image if available, otherwise use a default icon
               CircleAvatar(
                 radius: 30,
                 backgroundColor: Colors.grey[300],
                 backgroundImage:
                     imagePath.isNotEmpty ? FileImage(File(imagePath)) : null,
-                child: imagePath.isEmpty
-                    ? Text(user['name'][0].toUpperCase(),
+                child: imagePath.isEmpty && (name.isNotEmpty)
+                    ? Text(name[0].toUpperCase(),
                         style: const TextStyle(fontSize: 24))
-                    : null,
+                    : const Icon(Icons.person, size: 24, color: Colors.grey),
               ),
               const SizedBox(width: 16),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(user['name'] ?? 'N/A',
-                        style: GoogleFonts.poppins(fontSize: 16)),
-                    if (type == 'Admin')
-                      Text(
-                        'Administrator',
+                    Text(name, style: GoogleFonts.poppins(fontSize: 16)),
+                    Text(role,
                         style: GoogleFonts.poppins(
-                            fontSize: 14,
-                            color: const Color.fromARGB(255, 122, 30, 241)),
-                      )
-                    else
-                      Text(
-                        user['role'] ?? type,
-                        style: GoogleFonts.poppins(
-                            fontSize: 14, color: Colors.grey),
-                      ),
-                    if (type != 'Admin')
-                      Text(
-                        user['template'] ?? 'No event assigned',
+                            fontSize: 14, color: Colors.grey)),
+                    Text(template,
                         style: GoogleFonts.poppins(
                             fontSize: 12,
-                            color: const Color.fromARGB(255, 82, 15, 207)),
-                      ),
+                            color: const Color.fromARGB(
+                                255, 82, 15, 207))), // Updated font style
                   ],
                 ),
               ),
-              PopupMenuButton<String>(
-                onSelected: (value) {
-                  if (value == 'Edit') {
-                    if (type == 'Judge') {
-                      _editJudge(user);
-                    } else {
-                      _editAdmin(user);
-                    }
-                  } else if (value == 'Delete') {
-                    if (type == 'Judge') {
-                      _deleteJudge(user['id'] as int);
-                    } else {
-                      _deleteAdmin(user['id'] as int);
-                    }
-                  }
-                },
-                itemBuilder: (BuildContext context) {
-                  return [
-                    const PopupMenuItem(
-                      value: 'Edit',
-                      child: Text('Edit'),
-                    ),
-                    const PopupMenuItem(
-                      value: 'Delete',
-                      child: Text('Delete'),
-                    ),
-                  ];
-                },
-              ),
+              const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
             ],
           ),
         ),
@@ -420,144 +269,31 @@ class _UserManagementState extends State<UserManagement> {
     );
   }
 
-  Future<void> _editJudge(Map<String, dynamic> judge) async {
-    // Show loading dialog
-    showDialog(
-      context: context,
-      barrierDismissible: false, // Prevent dismiss by tapping outside
-      builder: (context) => const Center(child: CircularProgressIndicator()),
-    );
-
-    final result = await Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => JudgeCreation(
-          role: 'Edit Judge',
-          judge: judge,
-        ),
-      ),
-    );
-
-    // ignore: use_build_context_synchronously
-    Navigator.pop(context); // Dismiss the loading dialog
-
-    if (result != null) {
-      setState(() {
-        _judgesFuture = _fetchJudges();
-      });
-    }
-  }
-
-  Future<void> _deleteJudge(int id) async {
-    final dbHelper = DatabaseHelper.instance;
-    await dbHelper.deleteJudge(id);
-
-    setState(() {
-      _judgesFuture = _fetchJudges();
-    });
-  }
-
-  Future<void> _editAdmin(Map<String, dynamic> admin) async {
-    // Show loading dialog
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => const Center(child: CircularProgressIndicator()),
-    );
-
-    final result = await Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => AdminCreation(
-          role: 'Edit Admin',
-          admin: admin,
-        ),
-      ),
-    );
-
-    // ignore: use_build_context_synchronously
-    Navigator.pop(context); // Dismiss the loading dialog
-
-    if (result != null) {
-      setState(() {
-        _adminsFuture = _fetchAdmins();
-      });
-    }
-  }
-
-  Future<void> _deleteAdmin(int id) async {
-    final dbHelper = DatabaseHelper.instance;
-    await dbHelper.deleteAdmin(id);
-
-    setState(() {
-      _adminsFuture = _fetchAdmins();
-    });
-  }
-
   Future<List<Map<String, dynamic>>> _fetchJudges() async {
-    final db = DatabaseHelper.instance;
-    final List<Map<String, dynamic>> judges = await db.getJudges();
-    return judges;
-  }
+    final dbHelper = DatabaseHelper
+        .instance; // Ensure you have an instance of DatabaseHelper
+    try {
+      // Fetch all judges with their associated template names
+      final judgesWithTemplates = await dbHelper.getJudgesByTemplate();
 
-  Future<List<Map<String, dynamic>>> _fetchAdmins() async {
-    final db = DatabaseHelper.instance;
-    final List<Map<String, dynamic>> admins = await db.getAdmins();
-    return admins;
-  }
-
-  Future<void> _syncData() async {
-    // Retrieve data from SQLite
-    final db = DatabaseHelper.instance;
-    final judges = await db.getJudges();
-    final admins = await db.getAdmins();
-
-    // Firestore instance
-    final firestore = FirebaseFirestore.instance;
-
-    // Sync Judges
-    for (final judge in judges) {
-      final judgeId = judge['id'].toString(); // Convert to String
-      final existingDoc =
-          await firestore.collection('judges').doc(judgeId).get();
-      if (existingDoc.exists) {
-        // Update Firestore
-        await firestore.collection('judges').doc(judgeId).update(judge);
-      } else {
-        // Add new Firestore document
-        await firestore.collection('judges').doc(judgeId).set(judge);
+      if (kDebugMode) {
+        print('Fetched ${judgesWithTemplates.length} judges with templates.');
+        print('Judges with Templates: $judgesWithTemplates');
       }
-    }
 
-    // Sync Admins
-    for (final admin in admins) {
-      final adminId = admin['id'].toString();
-      final adminWithCorrectRole = {
-        ...admin,
-        'role': 'Administrator',
-      };
-
-      final existingDoc =
-          await firestore.collection('admins').doc(adminId).get();
-      if (existingDoc.exists) {
-        // Update Firestore with correct role
-        await firestore
-            .collection('admins')
-            .doc(adminId)
-            .update(adminWithCorrectRole);
-      } else {
-        // Add new Firestore document with correct role
-        await firestore
-            .collection('admins')
-            .doc(adminId)
-            .set(adminWithCorrectRole);
+      if (judgesWithTemplates.isEmpty) {
+        if (kDebugMode) {
+          print('No judges with template names found in the database.');
+        }
+        return []; // Return an empty list if no data is found
       }
-    }
 
-    // Notify user of successful sync
-    // ignore: use_build_context_synchronously
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Data synchronized successfully!')),
-    );
+      return judgesWithTemplates; // Return the list of judges with templates
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error fetching judges with templates: $e');
+      }
+      return []; // Return empty in case of error
+    }
   }
 }

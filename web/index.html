@@ -1,19 +1,6 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <!--
-    If you are serving your web app in a path other than the root, change the
-    href value below to reflect the base path you are serving from.
-
-    The path provided below has to start and end with a slash "/" in order for
-    it to work correctly.
-
-    For more details:
-    * https://developer.mozilla.org/en-US/docs/Web/HTML/Element/base
-
-    This is a placeholder for base href that will be replaced by the value of
-    the `--base-href` argument provided to `flutter build`.
-  -->
   <base href="$FLUTTER_BASE_HREF">
 
   <meta charset="UTF-8">
@@ -23,16 +10,40 @@
   <!-- iOS meta tags & icons -->
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
-  <meta name="apple-mobile-web-app-title" content="tabby">
+  <meta name="apple-mobile-web-app-title" content="Tabby">
   <link rel="apple-touch-icon" href="icons/Icon-192.png">
 
   <!-- Favicon -->
   <link rel="icon" type="image/png" href="favicon.png"/>
 
-  <title>tabby</title>
+  <title>Tabby</title>
   <link rel="manifest" href="manifest.json">
+
+  <!-- Add Google Sign-In Client ID -->
+  <meta name="google-signin-client_id" content="175547730349-cbub83tmu9c25rhefeofl606gbdupjal.apps.googleusercontent.com">
 </head>
 <body>
+  <!-- Include Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/10.0.0/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.0.0/firebase-analytics.js"></script>
   <script src="flutter_bootstrap.js" async></script>
+
+  <!-- Your Firebase configuration script -->
+  <script>
+    // Your web app's Firebase configuration
+    const firebaseConfig = {
+      apiKey: "AIzaSyAFmzDGAszbYULvgPPDhrJjk-TxFDEJkCc",
+      authDomain: "tabbyauth.firebaseapp.com",
+      projectId: "tabbyauth",
+      storageBucket: "tabbyauth.appspot.com",
+      messagingSenderId: "175547730349",
+      appId: "1:175547730349:web:848c4fbd099eda31cb7924",
+      measurementId: "G-BZEDZ8EWDC"
+    };
+
+    // Initialize Firebase
+    const app = firebase.initializeApp(firebaseConfig);
+    const analytics = firebase.getAnalytics(app);
+  </script>
 </body>
 </html>

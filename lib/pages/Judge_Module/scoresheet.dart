@@ -1,6 +1,7 @@
 // ignore_for_file: depend_on_referenced_packages, library_private_types_in_public_api, avoid_print, avoid_function_literals_in_foreach_calls, avoid_types_as_parameter_names
 
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:tabby/pages/Backend/data_base_helper.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -28,6 +29,10 @@ class _ScoresheetPageState extends State<ScoresheetPage> {
   List<TextEditingController> _scoreControllers = [];
   List<TextEditingController> _categoryScoreControllers = [];
 
+  String? judgeEmail;
+  String? judgeName;
+  String? selectedRole;
+
   bool isCriteriaEvaluated = false;
   bool isInCategoryEvaluation = false;
 
@@ -35,6 +40,15 @@ class _ScoresheetPageState extends State<ScoresheetPage> {
   void initState() {
     super.initState();
     _fetchTemplateDetails();
+    _fetchJudgeDetails();
+  }
+
+  Future<void> _fetchJudgeDetails() async {
+    User? user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      judgeEmail = user.email;
+      judgeName = user.displayName;
+    }
   }
 
   Future<void> _fetchTemplateDetails() async {
@@ -55,6 +69,9 @@ class _ScoresheetPageState extends State<ScoresheetPage> {
           setState(() {
             _isLoading = false;
           });
+
+          // Show role selection modal
+          _showRoleSelectionModal(details);
         } else {
           _showErrorSnackBar(
               'No details found for template code: $templateCode');
@@ -103,9 +120,132 @@ class _ScoresheetPageState extends State<ScoresheetPage> {
                   'Weightage': criterion['Weightage'],
                 };
               }).toList(),
+              'AssignedJudge': categoryData['AssignedJudge'],
             };
           }).toList()
         : [];
+  }
+
+  void _showRoleSelectionModal(Map<String, dynamic> details) {
+    List<String> roles = _categories
+        .map((category) => category['AssignedJudge'] as String)
+        .toSet()
+        .toList();
+
+    String? temporaryRole; // Store the selected name temporarily
+
+    showDialog(
+      context: context,
+      barrierDismissible: false, // Prevent closing without selection
+      builder: (BuildContext context) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              backgroundColor: const Color.fromARGB(255, 132, 96, 214),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              title: Center(
+                child: Text(
+                  'Select Your Name',
+                  style: GoogleFonts.poppins(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 20,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+              content: SizedBox(
+                width: double.maxFinite,
+                child: DropdownButtonFormField<String>(
+                  value: temporaryRole,
+                  hint: Text(
+                    'Select Name',
+                    style: GoogleFonts.poppins(color: Colors.white),
+                  ),
+                  onChanged: (String? newValue) {
+                    setState(() {
+                      temporaryRole = newValue;
+                    });
+                  },
+                  dropdownColor: const Color.fromARGB(255, 132, 96, 214),
+                  style: GoogleFonts.poppins(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  decoration: InputDecoration(
+                    filled: true,
+                    fillColor: Colors.white,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide.none,
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
+                  ),
+                  items: roles.map<DropdownMenuItem<String>>((String value) {
+                    return DropdownMenuItem<String>(
+                      value: value,
+                      child: Text(
+                        value,
+                        style: GoogleFonts.poppins(
+                          color: Colors.black,
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ),
+              actions: [
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.white, // Button background color
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8), // Rounded corners
+                    ),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8, // Reduced horizontal padding
+                      vertical: 4, // Reduced vertical padding
+                    ),
+                  ),
+                  onPressed: () {
+                    if (temporaryRole == null) {
+                      // Show a warning if no name is selected
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            'Please select your name before proceeding.',
+                            style: GoogleFonts.poppins(), // Font style
+                          ),
+                        ),
+                      );
+                    } else {
+                      setState(() {
+                        selectedRole =
+                            temporaryRole; // Update the selected role
+                        _filterCategoriesByRole(); // Apply role filter
+                      });
+                      Navigator.of(context).pop(); // Close dialog
+                    }
+                  },
+                  child: Center(
+                    child: Text(
+                      'Done',
+                      style: GoogleFonts.poppins(
+                        fontWeight: FontWeight.bold,
+                        color: const Color.fromARGB(255, 132, 96, 214),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
   }
 
   //participant getter natin idol
@@ -118,6 +258,14 @@ class _ScoresheetPageState extends State<ScoresheetPage> {
     setState(() {
       _isLoading = false;
     });
+  }
+
+  void _filterCategoriesByRole() {
+    if (selectedRole != null) {
+      _categories = _categories
+          .where((category) => category['AssignedJudge'] == selectedRole)
+          .toList();
+    }
   }
 
   void _saveSheets() async {
@@ -576,13 +724,15 @@ class _ScoresheetPageState extends State<ScoresheetPage> {
       // Ensure we have a score list for the current participant
       if (categoryScores[currentParticipantIndex].length < criteria.length) {
         // Initialize the scores if necessary
-        categoryScores[currentParticipantIndex].addAll(List.filled(
-            criteria.length - categoryScores[currentParticipantIndex].length,
-            0));
+        categoryScores[currentParticipantIndex] = List.from(
+            categoryScores[currentParticipantIndex])
+          ..addAll(List.generate(
+              criteria.length - categoryScores[currentParticipantIndex].length,
+              (_) => 0));
       }
     } else {
       // Initialize a new list if the participant is not present
-      categoryScores.add(List.filled(criteria.length, 0));
+      categoryScores.add(List.generate(criteria.length, (_) => 0));
     }
 
     for (var criterionIndex = 0;

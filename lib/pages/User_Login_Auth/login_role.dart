@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:tabby/pages/User_Login_Auth/user_signup_login.dart'; // Import the new Dart file
+import 'package:tabby/pages/Judge_Module/judge_dashboard.dart';
+import 'package:tabby/pages/User_Login_Auth/user_signup_login.dart';
 
 class LoginRoleSelection extends StatelessWidget {
   const LoginRoleSelection({super.key});
@@ -9,59 +10,121 @@ class LoginRoleSelection extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFF6A5AE0),
-      body: Padding(
-        padding: const EdgeInsets.only(top: 90, left: 15, right: 15),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Select',
-              style: GoogleFonts.rubik(
-                fontWeight: FontWeight.w700,
-                fontSize: 32,
-                color: const Color(0xFFFFD6DD),
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          // Determine if the screen is wide (web) or narrow (mobile)
+          bool isWideScreen = constraints.maxWidth > 600;
+
+          return Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 800),
+              child: Padding(
+                padding: const EdgeInsets.all(15),
+                child: Column(
+                  crossAxisAlignment: isWideScreen
+                      ? CrossAxisAlignment.center
+                      : CrossAxisAlignment.start,
+                  mainAxisAlignment: isWideScreen
+                      ? MainAxisAlignment.center
+                      : MainAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Select',
+                      style: GoogleFonts.rubik(
+                        fontWeight: FontWeight.w700,
+                        fontSize: isWideScreen ? 40 : 32,
+                        color: const Color(0xFFFFD6DD),
+                      ),
+                    ),
+                    Text(
+                      'User Type',
+                      style: GoogleFonts.rubik(
+                        fontWeight: FontWeight.w700,
+                        fontSize: isWideScreen ? 40 : 32,
+                        color: const Color(0xFFFFD6DD),
+                      ),
+                    ),
+                    const SizedBox(height: 30),
+                    isWideScreen
+                        ? Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                            children: [
+                              Expanded(
+                                child: _buildRoleButton(
+                                  context,
+                                  'Judge',
+                                  'assets/images/judge.jpg',
+                                  onTap: () {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) => const Dashboard(),
+                                      ),
+                                    );
+                                  },
+                                ),
+                              ),
+                              const SizedBox(width: 20),
+                              Expanded(
+                                child: _buildRoleButton(
+                                  context,
+                                  'Organizer',
+                                  'assets/images/admin.jpg',
+                                  onTap: () {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) =>
+                                            const UserSignUpLoginScreen(
+                                          role: 'Organizer',
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                ),
+                              ),
+                            ],
+                          )
+                        : Column(
+                            children: [
+                              _buildRoleButton(
+                                context,
+                                'Judge',
+                                'assets/images/judge.jpg',
+                                onTap: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) => const Dashboard(),
+                                    ),
+                                  );
+                                },
+                              ),
+                              const SizedBox(height: 20),
+                              _buildRoleButton(
+                                context,
+                                'Organizer',
+                                'assets/images/admin.jpg',
+                                onTap: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) =>
+                                          const UserSignUpLoginScreen(
+                                        role: 'Organizer',
+                                      ),
+                                    ),
+                                  );
+                                },
+                              ),
+                            ],
+                          ),
+                  ],
+                ),
               ),
             ),
-            Text(
-              'User Type',
-              style: GoogleFonts.rubik(
-                fontWeight: FontWeight.w700,
-                fontSize: 32,
-                color: const Color(0xFFFFD6DD),
-              ),
-            ),
-            const SizedBox(height: 30),
-            _buildRoleButton(
-              context,
-              'Judge',
-              'assets/images/judge.jpg',
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) =>
-                        const UserSignUpLoginScreen(role: 'Judge'),
-                  ),
-                );
-              },
-            ),
-            const SizedBox(height: 20),
-            _buildRoleButton(
-              context,
-              'Organizer',
-              'assets/images/admin.jpg',
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) =>
-                        const UserSignUpLoginScreen(role: 'Organizer'),
-                  ),
-                );
-              },
-            ),
-          ],
-        ),
+          );
+        },
       ),
     );
   }
@@ -71,7 +134,7 @@ class LoginRoleSelection extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 10),
+        margin: const EdgeInsets.symmetric(vertical: 10),
         padding: const EdgeInsets.symmetric(vertical: 30, horizontal: 15),
         decoration: BoxDecoration(
           color: Colors.white,

@@ -2,7 +2,7 @@
         <application
             android:label="tabby"
             android:name="${applicationName}"
-            android:icon="@mipmap/ic_launcher">
+            android:icon="@mipmap/tabubu">
             <activity
                 android:name=".MainActivity"
                 android:exported="true"
