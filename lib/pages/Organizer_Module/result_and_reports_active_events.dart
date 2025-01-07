@@ -364,49 +364,63 @@ class _ResultAndReportsActiveEventsState
   Widget _buildAllEventGrid() {
     return events.isEmpty
         ? const Center(child: CircularProgressIndicator())
-        : GridView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
-              childAspectRatio: 1.0,
-              crossAxisSpacing: 16,
-              mainAxisSpacing: 16,
-            ),
-            itemCount: events.length,
-            itemBuilder: (context, index) {
-              final event = events[index];
-              return GestureDetector(
-                onTap: () {
-                  // Pass the event name to the Result module
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) =>
-                          Result(eventName: event['eventName']),
-                    ),
-                  );
-                },
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF7D8EEA),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Center(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      child: Text(
-                        event['eventName'] ?? 'Unnamed Event',
-                        textAlign: TextAlign.center,
-                        style: GoogleFonts.poppins(
-                          fontWeight: FontWeight.w500,
-                          fontSize: 18,
-                          color: const Color(0xFFFFFFFF),
+        : LayoutBuilder(
+            builder: (context, constraints) {
+              // Determine the crossAxisCount based on screen width
+              int crossAxisCount = 2; // Default for small screens
+              if (constraints.maxWidth >= 1200) {
+                crossAxisCount = 5; // Larger screens
+              } else if (constraints.maxWidth >= 800) {
+                crossAxisCount = 4; // Medium screens
+              } else if (constraints.maxWidth >= 600) {
+                crossAxisCount = 3; // Tablet screens
+              }
+
+              return GridView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: crossAxisCount,
+                  childAspectRatio: 1.0,
+                  crossAxisSpacing: 16,
+                  mainAxisSpacing: 16,
+                ),
+                itemCount: events.length,
+                itemBuilder: (context, index) {
+                  final event = events[index];
+                  return GestureDetector(
+                    onTap: () {
+                      // Navigate to the Result module with the event name
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) =>
+                              Result(eventName: event['eventName']),
+                        ),
+                      );
+                    },
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF7D8EEA),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Center(
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          child: Text(
+                            event['eventName'] ?? 'Unnamed Event',
+                            textAlign: TextAlign.center,
+                            style: GoogleFonts.poppins(
+                              fontWeight: FontWeight.w500,
+                              fontSize: 18,
+                              color: const Color(0xFFFFFFFF),
+                            ),
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                ),
+                  );
+                },
               );
             },
           );

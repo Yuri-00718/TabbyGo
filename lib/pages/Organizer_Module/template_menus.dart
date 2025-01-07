@@ -376,6 +376,43 @@ class _TemplateMenusState extends State<TemplateMenus> {
     );
   }
 
+  Widget _buildDeleteButton() {
+    return FloatingActionButton(
+      heroTag: 'deleteButton', // Unique Hero tag
+      backgroundColor: const Color.fromARGB(255, 255, 255, 255),
+      onPressed: _resetDatabaseSchema,
+      tooltip: 'Delete All Templates',
+      child: const ImageIcon(
+        AssetImage('assets/images/Delete.png'),
+        size: 24, // Adjust size if needed
+        color: Colors.black, // Match the color of the add icon
+      ),
+    );
+  }
+
+  Widget _buildAddButton() {
+    return FloatingActionButton(
+      heroTag: 'addButton', // Unique Hero tag
+      backgroundColor: const Color.fromARGB(255, 255, 255, 255),
+      onPressed: () => _navigateToTemplateCreation(),
+      child: const Icon(Icons.add),
+    );
+  }
+
+  Widget _buildSyncButton() {
+    return FloatingActionButton(
+      heroTag: 'syncButton', // Unique Hero tag
+      backgroundColor: const Color.fromARGB(255, 255, 255, 255),
+      onPressed: _syncTemplates,
+      tooltip: 'Sync Templates',
+      child: const ImageIcon(
+        AssetImage('assets/images/sync.png'),
+        size: 24, // Adjust size if needed
+        color: Colors.black, // Match the color of the add icon
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -402,18 +439,26 @@ class _TemplateMenusState extends State<TemplateMenus> {
           ),
         ),
       ),
-      floatingActionButton: _buildAddButton(),
+      floatingActionButton: Stack(
+        children: [
+          Positioned(
+            bottom: 145,
+            right: 16,
+            child: _buildDeleteButton(),
+          ),
+          Positioned(
+            bottom: 80,
+            right: 16,
+            child: _buildSyncButton(),
+          ),
+          Positioned(
+            bottom: 16,
+            right: 16,
+            child: _buildAddButton(),
+          ),
+        ],
+      ),
       floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
-      persistentFooterButtons: [
-        ElevatedButton(
-          onPressed: _resetDatabaseSchema,
-          child: const Text('Delete All Templates'),
-        ),
-        ElevatedButton(
-          onPressed: _syncTemplates,
-          child: const Text('Sync Templates'),
-        ),
-      ],
     );
   }
 
@@ -790,14 +835,6 @@ class _TemplateMenusState extends State<TemplateMenus> {
           ),
         );
       },
-    );
-  }
-
-  Widget _buildAddButton() {
-    return FloatingActionButton(
-      backgroundColor: const Color.fromARGB(255, 255, 255, 255),
-      onPressed: () => _navigateToTemplateCreation(),
-      child: const Icon(Icons.add),
     );
   }
 }

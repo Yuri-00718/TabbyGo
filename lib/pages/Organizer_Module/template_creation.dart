@@ -1209,15 +1209,22 @@ class _TemplateCreationState extends State<TemplateCreation> {
                 'Assign Judge',
                 TextEditingController(), // Placeholder controller
                 isDropdown: true,
-                dropdownItems:
-                    _judges.map((judge) => judge['name']!.text).toList(),
-                initialValue: _category[i]['assignedJudge'],
+                dropdownItems: _judges.isNotEmpty
+                    ? _judges.map((judge) => judge['name']!.text).toList()
+                    : [],
+                initialValue: _judges.isNotEmpty &&
+                        _judges.any((judge) =>
+                            judge['name']!.text ==
+                            _category[i]['assignedJudge'])
+                    ? _category[i]['assignedJudge']
+                    : null, // Use null if no valid match
                 onChanged: (selectedJudge) {
                   setState(() {
                     _category[i]['assignedJudge'] = selectedJudge;
                   });
                 },
               ),
+
               const SizedBox(height: 16),
               for (int j = 0;
                   j < (_category[i]['criteriaList'] ?? []).length;

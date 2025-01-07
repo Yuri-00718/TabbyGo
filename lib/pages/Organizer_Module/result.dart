@@ -169,7 +169,7 @@ class _ResultState extends State<Result> {
 
   Widget _buildHeader() {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 38.4),
+      padding: const EdgeInsets.only(bottom: 15),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

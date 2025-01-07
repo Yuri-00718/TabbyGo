@@ -303,7 +303,7 @@ class _TabulationModuleState extends State<TabulationModule> {
     }
   }
 
-  Widget _buildGreetingSection() {
+  Widget _buildGreetingSection(BuildContext context) {
     return Container(
       margin: const EdgeInsets.only(top: 40),
       child: Column(
@@ -344,6 +344,36 @@ class _TabulationModuleState extends State<TabulationModule> {
               color: const Color(0xFFFFFFFF),
             ),
           ),
+          const SizedBox(height: 20),
+          if (_selectedView != "overallScores" &&
+              _selectedView != "categoryScores")
+            GestureDetector(
+              onTap: () {
+                Navigator.pop(context);
+              },
+              child: Row(
+                children: [
+                  Container(
+                    margin: const EdgeInsets.only(right: 8),
+                    child: Image.asset(
+                      'assets/images/Back_Arrow.png',
+                      width: 30,
+                      height: 30,
+                    ),
+                  ),
+                  Text(
+                    'Back',
+                    style: GoogleFonts.poppins(
+                      fontWeight: FontWeight.w500,
+                      fontSize: 20,
+                      height: 1.5,
+                      letterSpacing: 0.5,
+                      color: const Color(0xFFFFFFFF),
+                    ),
+                  ),
+                ],
+              ),
+            ),
         ],
       ),
     );
@@ -1037,7 +1067,7 @@ class _TabulationModuleState extends State<TabulationModule> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildGreetingSection(),
+            _buildGreetingSection(context),
             const SizedBox(height: 10),
             if (_selectedView == "menu")
               Expanded(child: _buildMenuSection(context))
