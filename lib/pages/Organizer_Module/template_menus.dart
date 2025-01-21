@@ -1,10 +1,13 @@
 // ignore_for_file: depend_on_referenced_packages, use_build_context_synchronously, avoid_print
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:tabby/pages/Backend/data_base_helper.dart';
 import 'package:tabby/pages/Organizer_Module/template_creation.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:mailer/mailer.dart';
 import 'package:mailer/smtp_server.dart';
@@ -20,10 +23,24 @@ class TemplateMenus extends StatefulWidget {
 class _TemplateMenusState extends State<TemplateMenus> {
   List<Widget> contentEvents = [];
 
+  late StreamSubscription<ConnectivityResult> _connectivitySubscription;
+
   @override
   void initState() {
     super.initState();
+
+    // Initialize with a dummy subscription
+    final dummyStreamController = StreamController<ConnectivityResult>();
+    _connectivitySubscription = dummyStreamController.stream.listen((_) {});
+    dummyStreamController.close(); // Close the stream to avoid leaks
+
     _loadTemplates();
+  }
+
+  @override
+  void dispose() {
+    _connectivitySubscription.cancel();
+    super.dispose();
   }
 
   Future<void> _loadTemplates() async {
@@ -48,6 +65,49 @@ class _TemplateMenusState extends State<TemplateMenus> {
   }
 
   Future<void> _syncTemplates() async {
+    final connectivityResult = await Connectivity().checkConnectivity();
+
+    if (connectivityResult == ConnectivityResult.none) {
+      // Show notification for no internet connection
+      if (mounted) {
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('No Internet Connection'),
+            content: const Text(
+                'You are currently offline. The sync process will proceed once the internet is restored.'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('OK'),
+              ),
+            ],
+          ),
+        );
+      }
+
+      // Listen for internet restoration
+      _connectivitySubscription.cancel(); // Cancel any existing subscription
+      _connectivitySubscription = Connectivity()
+          .onConnectivityChanged
+          .listen((ConnectivityResult result) {
+        if (result != ConnectivityResult.none) {
+          _connectivitySubscription
+              .cancel(); // Cancel listener once internet is back
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Internet restored. Syncing templates...'),
+                duration: Duration(seconds: 3),
+              ),
+            );
+          }
+          _syncTemplates(); // Retry sync
+        }
+      });
+
+      return;
+    }
     try {
       final firestore = FirebaseFirestore.instance;
       final firestoreCollection = firestore.collection('templates');
@@ -65,14 +125,13 @@ class _TemplateMenusState extends State<TemplateMenus> {
           firestoreTemplateDocs.map((doc) => doc.id).toSet();
 
       final firestoreTemplatesMap = {
-        for (var doc in firestoreTemplateDocs) doc.id: doc.data()
+        for (var doc in firestoreTemplateDocs) doc.id: doc.data(),
       };
 
       // Templates to sync
       final templatesToAddOrUpdateLocally = <Map<String, dynamic>>[];
       final templatesToAddToFirestore = <Map<String, dynamic>>[];
       final templatesToUpdateInFirestore = <Map<String, dynamic>>[];
-      final templatesToDeleteLocally = <String>{};
 
       final synchronizedTemplateIds =
           await DatabaseHelper.instance.getSynchronizedTemplateIds();
@@ -95,23 +154,15 @@ class _TemplateMenusState extends State<TemplateMenus> {
         final templateId = localTemplate['id'].toString();
 
         if (firestoreTemplateIds.contains(templateId)) {
-          // Check if the template is identical
           final firestoreTemplate = firestoreTemplatesMap[templateId];
           if (firestoreTemplate != null &&
               !_areTemplatesIdentical(firestoreTemplate, localTemplate)) {
             templatesToUpdateInFirestore.add(localTemplate);
           }
-        } else {
-          // Add locally missing templates to Firestore
-          if (!synchronizedTemplateIds.contains(templateId)) {
-            templatesToAddToFirestore.add(localTemplate);
-          }
+        } else if (!synchronizedTemplateIds.contains(templateId)) {
+          templatesToAddToFirestore.add(localTemplate);
         }
       }
-
-      // Identify templates to delete locally
-      templatesToDeleteLocally
-          .addAll(localTemplateIds.difference(firestoreTemplateIds));
 
       // Firestore batch operations
       final firestoreBatch = firestore.batch();
@@ -125,7 +176,6 @@ class _TemplateMenusState extends State<TemplateMenus> {
           SetOptions(merge: true),
         );
 
-        // Add unique judges for the template
         if (template['judges'] != null) {
           final existingJudgeEmails =
               await _getExistingJudgeEmails(judgesCollection, templateId);
@@ -156,29 +206,6 @@ class _TemplateMenusState extends State<TemplateMenus> {
           template,
           SetOptions(merge: true),
         );
-
-        // Update judges for the template
-        if (template['judges'] != null) {
-          final existingJudgeEmails =
-              await _getExistingJudgeEmails(judgesCollection, templateId);
-          for (final judge in template['judges']) {
-            if (!existingJudgeEmails.contains(judge['email'])) {
-              firestoreBatch.set(
-                judgesCollection.doc(),
-                {
-                  'templateId': templateId,
-                  'eventName': template['eventName'],
-                  'templateCode': template['templateCode'],
-                  'email': judge['email'],
-                  'name': judge['name'],
-                  'role': judge['role'],
-                  'phonenumber': judge['phonenumber'],
-                },
-                SetOptions(merge: true),
-              );
-            }
-          }
-        }
       }
 
       if (templatesToAddToFirestore.isNotEmpty ||
@@ -191,11 +218,6 @@ class _TemplateMenusState extends State<TemplateMenus> {
         await DatabaseHelper.instance.insertOrUpdateTemplate(template);
         await DatabaseHelper.instance
             .markTemplateAsSynchronized(template['id'].toString());
-      }
-
-      // Delete locally missing templates
-      for (final id in templatesToDeleteLocally) {
-        await DatabaseHelper.instance.deleteTemplate(int.parse(id));
       }
 
       // Reload templates after sync
@@ -213,7 +235,6 @@ class _TemplateMenusState extends State<TemplateMenus> {
         print('Error syncing templates: $e');
       }
 
-      // Notification for sync failure
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Error syncing templates. Please try again.'),
@@ -741,99 +762,206 @@ class _TemplateMenusState extends State<TemplateMenus> {
   Future<Widget> _buildContentEvents(Map<String, dynamic> template) async {
     return LayoutBuilder(
       builder: (context, constraints) {
-        // Check if the screen width is for web
         final isWebView = constraints.maxWidth > 600;
 
-        return Container(
-          margin: const EdgeInsets.fromLTRB(0, 25, 0, 16),
-          padding: const EdgeInsets.fromLTRB(20, 13, 25, 13),
-          decoration: BoxDecoration(
-            border: Border.all(color: const Color(0xFFEFEEFC)),
-            borderRadius: BorderRadius.circular(20),
-            color: const Color(0xFFFFFFFF),
-          ),
-          constraints: isWebView
-              ? const BoxConstraints(maxWidth: 800) // Limit max width on web
-              : null,
-          child: Center(
-            child: Row(
-              mainAxisAlignment: isWebView
-                  ? MainAxisAlignment.spaceBetween // Spread content in web view
-                  : MainAxisAlignment.start, // Stack content in mobile view
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+        if (isWebView) {
+          int crossAxisCount = 2;
+          if (constraints.maxWidth >= 1200) {
+            crossAxisCount = 5;
+          } else if (constraints.maxWidth >= 800) {
+            crossAxisCount = 4;
+          } else if (constraints.maxWidth >= 600) {
+            crossAxisCount = 3;
+          }
+
+          return Center(
+            child: GridView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: crossAxisCount,
+                childAspectRatio: 2.0,
+                crossAxisSpacing: 16,
+                mainAxisSpacing: 16,
+              ),
+              itemCount: 1,
+              itemBuilder: (context, index) {
+                return Container(
+                  margin: const EdgeInsets.fromLTRB(0, 25, 0, 16),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20, // Reduced excessive padding
+                    vertical: 13,
+                  ),
+                  decoration: BoxDecoration(
+                    border: Border.all(color: const Color(0xFFEFEEFC)),
+                    borderRadius: BorderRadius.circular(20),
+                    color: const Color(0xFFFFFFFF),
+                  ),
+                  child: Stack(
                     children: [
-                      Container(
-                        margin: const EdgeInsets.only(bottom: 10),
-                        child: Text(
-                          template['eventName'] ?? 'No Title',
-                          style: GoogleFonts.poppins(
-                            fontWeight: FontWeight.w500,
-                            fontSize: isWebView ? 18 : 20, // Adjust font size
-                            height: 1.5,
-                            color: const Color(0xFF0C092A),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Container(
+                            margin: const EdgeInsets.only(bottom: 10),
+                            child: Text(
+                              template['eventName'] ?? 'No Title',
+                              style: GoogleFonts.poppins(
+                                fontWeight: FontWeight.w500,
+                                fontSize: 18,
+                                height: 1.5,
+                                color: const Color(0xFF0C092A),
+                              ),
+                            ),
                           ),
-                        ),
+                          Text(
+                            'Event Code Template: ${template['templateCode'] ?? 'No Code'}',
+                            style: GoogleFonts.poppins(
+                              fontWeight: FontWeight.w400,
+                              fontSize: 14,
+                              height: 1.5,
+                              color: const Color(0xFF858494),
+                            ),
+                          ),
+                        ],
                       ),
-                      Text(
-                        'Event Code Template: ${template['templateCode'] ?? 'No Code'}',
-                        style: GoogleFonts.poppins(
-                          fontWeight: FontWeight.w400,
-                          fontSize: isWebView ? 14 : 16, // Adjust font size
-                          height: 1.5,
-                          color: const Color(0xFF858494),
+                      Positioned(
+                        top: 5,
+                        right: 0, // Align to the far-right edge
+                        child: PopupMenuButton<String>(
+                          icon: SizedBox(
+                            width: 35,
+                            height: 35,
+                            child: Image.asset(
+                              'assets/images/menu.png',
+                              color: const Color(0xFF6A5AE0),
+                            ),
+                          ),
+                          itemBuilder: (context) {
+                            return [
+                              const PopupMenuItem<String>(
+                                value: 'Edit',
+                                child: Text('Edit'),
+                              ),
+                              const PopupMenuItem<String>(
+                                value: 'Delete',
+                                child: Text('Delete'),
+                              ),
+                              const PopupMenuItem<String>(
+                                value: 'Send Code',
+                                child: Text('Send Code'),
+                              ),
+                            ];
+                          },
+                          onSelected: (value) async {
+                            switch (value) {
+                              case 'Edit':
+                                _editTemplate(template);
+                                break;
+                              case 'Delete':
+                                _deleteTemplate(template['id']);
+                                break;
+                              case 'Send Code':
+                                await _sendTemplateCodeToJudges(
+                                    context, template['templateCode']);
+                                break;
+                            }
+                          },
                         ),
                       ),
                     ],
                   ),
-                ),
-                PopupMenuButton<String>(
-                  icon: SizedBox(
-                    width: 35,
-                    height: 35,
-                    child: Image.asset(
-                      'assets/images/menu.png',
-                      color: const Color(0xFF6A5AE0),
+                );
+              },
+            ),
+          );
+        } else {
+          return Container(
+            margin: const EdgeInsets.fromLTRB(0, 25, 0, 16),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 13),
+            decoration: BoxDecoration(
+              border: Border.all(color: const Color(0xFFEFEEFC)),
+              borderRadius: BorderRadius.circular(20),
+              color: const Color(0xFFFFFFFF),
+            ),
+            child: Center(
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Container(
+                          margin: const EdgeInsets.only(bottom: 10),
+                          child: Text(
+                            template['eventName'] ?? 'No Title',
+                            style: GoogleFonts.poppins(
+                              fontWeight: FontWeight.w500,
+                              fontSize: 20,
+                              height: 1.5,
+                              color: const Color(0xFF0C092A),
+                            ),
+                          ),
+                        ),
+                        Text(
+                          'Event Code Template: ${template['templateCode'] ?? 'No Code'}',
+                          style: GoogleFonts.poppins(
+                            fontWeight: FontWeight.w400,
+                            fontSize: 16,
+                            height: 1.5,
+                            color: const Color(0xFF858494),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                  itemBuilder: (context) {
-                    return [
-                      const PopupMenuItem<String>(
-                        value: 'Edit',
-                        child: Text('Edit'),
+                  PopupMenuButton<String>(
+                    icon: SizedBox(
+                      width: 35,
+                      height: 35,
+                      child: Image.asset(
+                        'assets/images/menu.png',
+                        color: const Color(0xFF6A5AE0),
                       ),
-                      const PopupMenuItem<String>(
-                        value: 'Delete',
-                        child: Text('Delete'),
-                      ),
-                      const PopupMenuItem<String>(
-                        value: 'Send Code',
-                        child: Text('Send Code'),
-                      ),
-                    ];
-                  },
-                  onSelected: (value) async {
-                    switch (value) {
-                      case 'Edit':
-                        _editTemplate(template);
-                        break;
-                      case 'Delete':
-                        _deleteTemplate(template['id']);
-                        break;
-                      case 'Send Code':
-                        await _sendTemplateCodeToJudges(
-                            context, template['templateCode']);
-                        break;
-                    }
-                  },
-                ),
-              ],
+                    ),
+                    itemBuilder: (context) {
+                      return [
+                        const PopupMenuItem<String>(
+                          value: 'Edit',
+                          child: Text('Edit'),
+                        ),
+                        const PopupMenuItem<String>(
+                          value: 'Delete',
+                          child: Text('Delete'),
+                        ),
+                        const PopupMenuItem<String>(
+                          value: 'Send Code',
+                          child: Text('Send Code'),
+                        ),
+                      ];
+                    },
+                    onSelected: (value) async {
+                      switch (value) {
+                        case 'Edit':
+                          _editTemplate(template);
+                          break;
+                        case 'Delete':
+                          _deleteTemplate(template['id']);
+                          break;
+                        case 'Send Code':
+                          await _sendTemplateCodeToJudges(
+                              context, template['templateCode']);
+                          break;
+                      }
+                    },
+                  ),
+                ],
+              ),
             ),
-          ),
-        );
+          );
+        }
       },
     );
   }

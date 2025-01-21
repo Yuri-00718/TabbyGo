@@ -6,6 +6,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 // ignore: depend_on_referenced_packages
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:tabby/pages/Backend/data_base_helper.dart';
 
 class RegistrationScreen extends StatefulWidget {
   final String role;
@@ -44,19 +45,30 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
 
   Future<void> _register() async {
     if (_formKey.currentState?.validate() ?? false) {
-      final email = _emailController.text;
-      final password = _passwordController.text;
+      final email = _emailController.text.trim();
+      final password = _passwordController.text.trim();
 
       try {
-        UserCredential userCredential =
-            await FirebaseAuth.instance.createUserWithEmailAndPassword(
-          email: email,
-          password: password,
-        );
-        User? user = userCredential.user;
-        await _saveUserData(user);
+        if (_isOnline) {
+          // Register online with Firebase
+          UserCredential userCredential =
+              await FirebaseAuth.instance.createUserWithEmailAndPassword(
+            email: email,
+            password: password,
+          );
+          User? user = userCredential.user;
 
-        // Navigate based on role
+          // Save user data to Firestore
+          await _saveUserData(user);
+
+          // Save credentials offline
+          await _saveUserOffline(email, password);
+        } else {
+          // Save credentials offline directly in offline mode
+          await _saveUserOffline(email, password);
+        }
+
+        // Navigate to the appropriate dashboard
         String dashboardRoute = widget.role.toLowerCase() == 'judge'
             ? '/judge_dashboard'
             : '/dashBoard';
@@ -64,24 +76,33 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
         // ignore: use_build_context_synchronously
         Navigator.pushReplacementNamed(context, dashboardRoute);
       } catch (e) {
-        _showErrorDialog(e.toString());
+        _showErrorDialog("Registration failed: $e");
       }
+    }
+  }
+
+  Future<void> _saveUserOffline(String email, String password) async {
+    try {
+      // Use the `registerAdmin` method from your DatabaseHelper.
+      await DatabaseHelper.instance.registerAdmin(email, password);
+      debugPrint("User registered offline successfully.");
+    } catch (e) {
+      debugPrint("Failed to register user offline: $e");
+      _showErrorDialog("Failed to register offline: $e");
     }
   }
 
   Future<void> _saveUserData(User? user) async {
     if (user != null) {
       try {
-        String defaultUsername = user.email!.split('@')[0];
-
         // Save user data in Firestore
         await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
           'uid': user.uid,
           'email': user.email,
           'role': widget.role,
-          'username': defaultUsername,
         });
       } catch (e) {
+        debugPrint("Failed to save user data to Firestore: $e");
         _showErrorDialog("Failed to save user data: $e");
       }
     }

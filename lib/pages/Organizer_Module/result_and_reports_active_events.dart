@@ -273,6 +273,12 @@ class _ResultAndReportsActiveEventsState
       );
     }
 
+    // Adjust container width for larger screens
+    double containerWidth = screenWidth * 0.9; // Default for small screens
+    if (screenWidth >= 600) {
+      containerWidth = screenWidth * 0.4; // Wider container for larger screens
+    }
+
     // Display the list of active events
     return ListView.builder(
       padding: const EdgeInsets.only(top: 8),
@@ -288,71 +294,74 @@ class _ResultAndReportsActiveEventsState
               ),
             );
           },
-          child: Container(
-            margin: EdgeInsets.symmetric(
-              vertical: index == 0 ? 6 : 13, // Less margin for the first event
-            ),
-            width: screenWidth * 0.9,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(15),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.grey.withOpacity(0.2),
-                  blurRadius: 6,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-            ),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 16.0,
-                vertical: 12.0,
+          child: Center(
+            child: Container(
+              margin: EdgeInsets.symmetric(
+                vertical:
+                    index == 0 ? 6 : 13, // Less margin for the first event
               ),
-              child: Row(
-                children: [
-                  Container(
-                    width: 60,
-                    height: 60,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF7D8EEA),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: const Icon(
-                      Icons.event,
-                      color: Colors.white,
-                      size: 30,
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          event['eventName'] ?? 'Unnamed Event',
-                          style: GoogleFonts.poppins(
-                            fontWeight: FontWeight.w600,
-                            fontSize: 18,
-                            color: const Color(0xFF333333),
-                          ),
-                        ),
-                        const SizedBox(height: 6),
-                        Text(
-                          event['eventDate'] ?? 'Date not available',
-                          style: GoogleFonts.poppins(
-                            fontSize: 14,
-                            color: Colors.grey[600],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const Icon(
-                    Icons.chevron_right,
-                    color: Colors.grey,
+              width: containerWidth,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(15),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.grey.withOpacity(0.2),
+                    blurRadius: 6,
+                    offset: const Offset(0, 4),
                   ),
                 ],
+              ),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16.0,
+                  vertical: 12.0,
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 60,
+                      height: 60,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF7D8EEA),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Icon(
+                        Icons.event,
+                        color: Colors.white,
+                        size: 30,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            event['eventName'] ?? 'Unnamed Event',
+                            style: GoogleFonts.poppins(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 18,
+                              color: const Color(0xFF333333),
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            event['eventDate'] ?? 'Date not available',
+                            style: GoogleFonts.poppins(
+                              fontSize: 14,
+                              color: Colors.grey[600],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Icon(
+                      Icons.chevron_right,
+                      color: Colors.grey,
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -366,8 +375,7 @@ class _ResultAndReportsActiveEventsState
         ? const Center(child: CircularProgressIndicator())
         : LayoutBuilder(
             builder: (context, constraints) {
-              // Determine the crossAxisCount based on screen width
-              int crossAxisCount = 2; // Default for small screens
+              int crossAxisCount = 2;
               if (constraints.maxWidth >= 1200) {
                 crossAxisCount = 5; // Larger screens
               } else if (constraints.maxWidth >= 800) {

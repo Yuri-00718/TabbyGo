@@ -50,7 +50,6 @@ void main() async {
     }
   }
 
-  // Set the database factory for FFI Web
   if (kIsWeb) {
     databaseFactory = databaseFactoryFfiWeb; // Set FFI Web factory for SQLite
   }

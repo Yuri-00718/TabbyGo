@@ -137,7 +137,7 @@ class _DashBoardState extends State<DashBoard> {
                     ),
                     _buildActionContainer(
                       context,
-                      'User Account \n Management',
+                      'Judges Account \n Management',
                       'assets/images/woman_participates_in_an_online_conference_with_colleagues.png',
                       () {
                         Navigator.push(

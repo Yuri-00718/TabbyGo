@@ -166,6 +166,7 @@ class _TabulationModuleState extends State<TabulationModule> {
     try {
       List<List<dynamic>> rows = [
         [
+          "Section",
           "Participant ID",
           "Name",
           "Total Score",
@@ -177,6 +178,8 @@ class _TabulationModuleState extends State<TabulationModule> {
       ];
 
       // Add Overall Scores
+      rows.add(
+          ["Overall Scores", "", "", "", "", "", "", ""]); // Section Header
       _participantScores.forEach((participantId, data) {
         String name = data['name'] ?? 'Unknown';
         double totalScore = data['totalScore'] ?? 0.0;
@@ -185,6 +188,7 @@ class _TabulationModuleState extends State<TabulationModule> {
         List<int> scores = List<int>.from(data['scores']);
 
         rows.add([
+          "Overall",
           participantId,
           name,
           totalScore.toStringAsFixed(2),
@@ -196,9 +200,12 @@ class _TabulationModuleState extends State<TabulationModule> {
       });
 
       // Add Category Scores
+      rows.add(
+          ["Category Scores", "", "", "", "", "", "", ""]); // Section Header
       _categoryScores.forEach((participantName, categories) {
         for (var category in categories) {
           rows.add([
+            "Category",
             "",
             participantName,
             category['score'] ?? 0.0,

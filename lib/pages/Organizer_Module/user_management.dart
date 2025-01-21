@@ -123,7 +123,7 @@ class _UserManagementState extends State<UserManagement> {
         const SizedBox(width: 15.3),
         Expanded(
           child: Text(
-            'User Management',
+            'Judges Management',
             style: GoogleFonts.poppins(
               fontWeight: FontWeight.w500,
               fontSize: 24,
@@ -224,48 +224,84 @@ class _UserManagementState extends State<UserManagement> {
     final template = user['eventName'] ?? 'No event assigned';
     final imagePath = user['image'] ?? '';
 
-    return GestureDetector(
-      child: Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(15),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Row(
-            children: [
-              CircleAvatar(
-                radius: 30,
-                backgroundColor: Colors.grey[300],
-                backgroundImage:
-                    imagePath.isNotEmpty ? FileImage(File(imagePath)) : null,
-                child: imagePath.isEmpty && (name.isNotEmpty)
-                    ? Text(name[0].toUpperCase(),
-                        style: const TextStyle(fontSize: 24))
-                    : const Icon(Icons.person, size: 24, color: Colors.grey),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // Adjust container width based on screen size
+        double containerWidth =
+            constraints.maxWidth * 0.9; // Default for small screens
+        if (constraints.maxWidth >= 600) {
+          containerWidth =
+              constraints.maxWidth * 0.4; // Smaller for larger screens
+        }
+
+        return Center(
+          child: GestureDetector(
+            child: Container(
+              width: containerWidth,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(15),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.grey.withOpacity(0.2),
+                    blurRadius: 6,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
               ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Row(
                   children: [
-                    Text(name, style: GoogleFonts.poppins(fontSize: 16)),
-                    Text(role,
-                        style: GoogleFonts.poppins(
-                            fontSize: 14, color: Colors.grey)),
-                    Text(template,
-                        style: GoogleFonts.poppins(
-                            fontSize: 12,
-                            color: const Color.fromARGB(
-                                255, 82, 15, 207))), // Updated font style
+                    CircleAvatar(
+                      radius: 30,
+                      backgroundColor: Colors.grey[300],
+                      backgroundImage: imagePath.isNotEmpty
+                          ? FileImage(File(imagePath))
+                          : null,
+                      child: imagePath.isEmpty && name.isNotEmpty
+                          ? Text(
+                              name[0].toUpperCase(),
+                              style: const TextStyle(fontSize: 24),
+                            )
+                          : const Icon(Icons.person,
+                              size: 24, color: Colors.grey),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            name,
+                            style: GoogleFonts.poppins(fontSize: 16),
+                          ),
+                          Text(
+                            role,
+                            style: GoogleFonts.poppins(
+                              fontSize: 14,
+                              color: Colors.grey,
+                            ),
+                          ),
+                          Text(
+                            template,
+                            style: GoogleFonts.poppins(
+                              fontSize: 12,
+                              color: const Color.fromARGB(255, 82, 15, 207),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Icon(Icons.arrow_forward_ios,
+                        size: 16, color: Colors.grey),
                   ],
                 ),
               ),
-              const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
-            ],
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 

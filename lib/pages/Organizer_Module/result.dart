@@ -611,15 +611,19 @@ class _ResultState extends State<Result> {
 
   Widget _buildPodiumWinnerInfo(List<Map<String, dynamic>> topScores,
       double screenHeight, double screenWidth) {
+    bool isMobile = screenWidth < 600;
+
     return Stack(
       alignment: Alignment.bottomCenter,
       children: [
         if (topScores.length > 1)
           Positioned(
             bottom: screenHeight * 0.42,
-            right: screenWidth * 0.64,
-            child: SizedBox(
-              width: screenWidth * 0.25,
+            right: isMobile ? screenWidth * 0.64 : screenWidth * 0.44,
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                maxWidth: screenWidth * 0.25,
+              ),
               child: Align(
                 alignment: Alignment.center,
                 child: _buildWinnerInfo(
@@ -633,8 +637,10 @@ class _ResultState extends State<Result> {
         if (topScores.isNotEmpty)
           Positioned(
             bottom: screenHeight * 0.46,
-            child: SizedBox(
-              width: screenWidth * 0.3,
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                maxWidth: screenWidth * 0.3,
+              ),
               child: Align(
                 alignment: Alignment.center,
                 child: _buildWinnerInfo(
@@ -648,9 +654,11 @@ class _ResultState extends State<Result> {
         if (topScores.length > 2)
           Positioned(
             bottom: screenHeight * 0.38,
-            left: screenWidth * 0.63,
-            child: SizedBox(
-              width: screenWidth * 0.25,
+            left: isMobile ? screenWidth * 0.63 : screenWidth * 0.44,
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                maxWidth: screenWidth * 0.25,
+              ),
               child: Align(
                 alignment: Alignment.center,
                 child: _buildWinnerInfo(
@@ -666,7 +674,6 @@ class _ResultState extends State<Result> {
   }
 
   Widget _buildWinnerInfo(String name, String photoUrl, String points) {
-    // Define the text style for participant names
     final TextStyle resultsStyle = GoogleFonts.poppins(
       fontWeight: FontWeight.w500,
       fontSize: 15,
@@ -701,12 +708,15 @@ class _ResultState extends State<Result> {
           ),
         ),
         const SizedBox(height: 4),
-        Text(
-          name,
-          textAlign: TextAlign.center,
-          overflow: TextOverflow.ellipsis,
-          maxLines: 1,
-          style: resultsStyle,
+        SizedBox(
+          width: 100, // Constrain the width
+          child: Text(
+            name,
+            textAlign: TextAlign.center,
+            overflow: TextOverflow.ellipsis,
+            maxLines: 1,
+            style: resultsStyle,
+          ),
         ),
         const SizedBox(height: 4),
         Container(

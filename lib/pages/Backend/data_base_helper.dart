@@ -93,12 +93,8 @@ class DatabaseHelper {
     await db.execute('''
     CREATE TABLE admins(
       id INTEGER PRIMARY KEY AUTOINCREMENT,
-      name TEXT,
-      username TEXT UNIQUE,
-      password TEXT,
-      raw_password TEXT,
-      role TEXT,
-      image TEXT
+      email TEXT UNIQUE NOT NULL,
+      password TEXT
     )
   ''');
 
@@ -148,8 +144,10 @@ class DatabaseHelper {
       await db.execute('DROP TABLE IF EXISTS results');
       await db.execute('DROP TABLE IF EXISTS additional_ranks');
       await db.execute('DROP TABLE IF EXISTS judges');
-      await db.execute('DROP TABLE IF EXISTS admins');
+      await db.execute(
+          'DROP TABLE IF EXISTS admins'); // This should be fine as long as the table exists
 
+      // Recreate tables with the correct schema
       await _onCreate(
           db, 9); // Ensure version matches the current schema version
 
@@ -606,31 +604,43 @@ class DatabaseHelper {
   }
 
   // Custom admin authentication methods for offline use
-  Future<void> registerAdmin(
-      String username, String password, String name, String role) async {
+  Future<void> registerAdmin(String email, String password) async {
+    // Hash the password
     String hashedPassword = _hashPassword(password);
+
+    // Insert into the admins table
     await _database!.insert(
       'admins',
       {
-        'username': username,
+        'email': email,
         'password': hashedPassword,
-        'name': name,
-        'role': role,
       },
-      conflictAlgorithm: ConflictAlgorithm.replace,
+      conflictAlgorithm: ConflictAlgorithm.replace, // Update if exists
     );
   }
 
 // Method to login Admin in offline mode
-  Future<bool> loginAdmin(String username, String password) async {
+  Future<bool> loginAdmin(String email, String password) async {
+    // Hash the password
     String hashedPassword = _hashPassword(password);
+
+    // Query the admins table
     final db = await database;
     List<Map<String, dynamic>> result = await db.query(
       'admins',
-      where: 'username = ? AND password = ?',
-      whereArgs: [username, hashedPassword],
+      where: 'email = ? AND password = ?',
+      whereArgs: [email, hashedPassword],
     );
+
+    // Return true if a matching record is found
     return result.isNotEmpty;
+  }
+
+// Method to hash the password using SHA-256
+  String _hashPassword(String password) {
+    var bytes = utf8.encode(password); // Convert password to bytes
+    var digest = sha256.convert(bytes); // Hash the bytes
+    return digest.toString(); // Return the hashed password
   }
 
 // Custom judge registration method for offline use
@@ -665,13 +675,6 @@ class DatabaseHelper {
       return judge['password'] == password;
     }
     return false;
-  }
-
-  // Method to hash the password using SHA-256
-  String _hashPassword(String password) {
-    var bytes = utf8.encode(password); // Convert password to bytes
-    var digest = sha256.convert(bytes); // Hash the bytes
-    return digest.toString(); // Return the hashed password
   }
 
   //Results methods

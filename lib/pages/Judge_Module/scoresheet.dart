@@ -127,12 +127,13 @@ class _ScoresheetPageState extends State<ScoresheetPage> {
   }
 
   void _showRoleSelectionModal(Map<String, dynamic> details) {
+    // Extract unique judge roles from categories
     List<String> roles = _categories
         .map((category) => category['AssignedJudge'] as String)
         .toSet()
         .toList();
 
-    String? temporaryRole; // Store the selected name temporarily
+    String? temporaryRole; // Temporarily store the selected role
 
     showDialog(
       context: context,
@@ -147,7 +148,7 @@ class _ScoresheetPageState extends State<ScoresheetPage> {
               ),
               title: Center(
                 child: Text(
-                  'Select Your Name',
+                  'Select Judge Role',
                   style: GoogleFonts.poppins(
                     fontWeight: FontWeight.bold,
                     fontSize: 20,
@@ -160,12 +161,12 @@ class _ScoresheetPageState extends State<ScoresheetPage> {
                 child: DropdownButtonFormField<String>(
                   value: temporaryRole,
                   hint: Text(
-                    'Select Name',
+                    'Select Role',
                     style: GoogleFonts.poppins(color: Colors.white),
                   ),
                   onChanged: (String? newValue) {
                     setState(() {
-                      temporaryRole = newValue;
+                      temporaryRole = newValue; // Update temporary role
                     });
                   },
                   dropdownColor: const Color.fromARGB(255, 132, 96, 214),
@@ -212,11 +213,11 @@ class _ScoresheetPageState extends State<ScoresheetPage> {
                   ),
                   onPressed: () {
                     if (temporaryRole == null) {
-                      // Show a warning if no name is selected
+                      // Show a warning if no role is selected
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
                           content: Text(
-                            'Please select your name before proceeding.',
+                            'Please select a judge role before proceeding.',
                             style: GoogleFonts.poppins(), // Font style
                           ),
                         ),
@@ -224,7 +225,7 @@ class _ScoresheetPageState extends State<ScoresheetPage> {
                     } else {
                       setState(() {
                         selectedRole =
-                            temporaryRole; // Update the selected role
+                            temporaryRole; // Update the selected judge role
                         _filterCategoriesByRole(); // Apply role filter
                       });
                       Navigator.of(context).pop(); // Close dialog
@@ -248,6 +249,15 @@ class _ScoresheetPageState extends State<ScoresheetPage> {
     );
   }
 
+  void _filterCategoriesByRole() {
+    if (selectedRole != null) {
+      // Filter categories based on the selected judge role
+      _categories = _categories
+          .where((category) => category['AssignedJudge'] == selectedRole)
+          .toList();
+    }
+  }
+
   //participant getter natin idol
   Map<String, dynamic> get currentParticipant =>
       _participants.isNotEmpty ? _participants[currentParticipantIndex] : {};
@@ -258,14 +268,6 @@ class _ScoresheetPageState extends State<ScoresheetPage> {
     setState(() {
       _isLoading = false;
     });
-  }
-
-  void _filterCategoriesByRole() {
-    if (selectedRole != null) {
-      _categories = _categories
-          .where((category) => category['AssignedJudge'] == selectedRole)
-          .toList();
-    }
   }
 
   void _saveSheets() async {

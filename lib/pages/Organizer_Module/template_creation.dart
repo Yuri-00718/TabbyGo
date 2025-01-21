@@ -87,6 +87,7 @@ class _TemplateCreationState extends State<TemplateCreation> {
     super.initState();
     _maxWeightageController.text = '100';
     _calculateTotalWeightage();
+    _calculateTotalWeightageForCategories();
 
     if (widget.template != null) {
       _eventNameController.text = widget.template!['eventName'] ?? '';
@@ -123,6 +124,7 @@ class _TemplateCreationState extends State<TemplateCreation> {
     _loadCategory();
     _loadEventMechanics();
     _calculateTotalWeightage();
+    _calculateTotalWeightageForCategories();
   }
 
   void _loadJudges() {
@@ -216,8 +218,10 @@ class _TemplateCreationState extends State<TemplateCreation> {
       print("Loaded categories into _category list: $_category");
     } else {
       print("No categories found, adding default category.");
-      _addCategory(); // Ensure this method is correctly defined
+      _addCategory();
     }
+
+    _calculateTotalWeightageForCategories();
   }
 
   void _loadEventMechanics() {
@@ -427,16 +431,24 @@ class _TemplateCreationState extends State<TemplateCreation> {
   }
 
   void _calculateTotalWeightageForCategories() {
-    double totalWeightage = 0;
+    setState(() {
+      for (var category in _category) {
+        final criteriaList = category['criteriaList'] ?? [];
+        int totalWeightage = 0;
 
-    for (var category in _category) {
-      if (category['Weightage']?.text.isNotEmpty ?? false) {
-        totalWeightage += double.tryParse(category['Weightage']!.text) ?? 0;
+        for (var criterion in criteriaList) {
+          final weightage =
+              int.tryParse(criterion['Weightage']?.text ?? '0') ?? 0;
+          totalWeightage += weightage;
+        }
+
+        category['totalWeightage'] = totalWeightage;
       }
-    }
 
-    // Do something with totalWeightage, e.g., update a state variable to display
-    print("Total Weightage for Categories: $totalWeightage");
+      if (kDebugMode) {
+        print('Updated categories with total weightages: $_category');
+      }
+    });
   }
 
 // Update participant image with error handling
@@ -535,8 +547,7 @@ class _TemplateCreationState extends State<TemplateCreation> {
         'Category': category['Category'].text ?? '',
         'Criteria': criteriaList,
         'Weightage': totalWeightageForCategory, // Store as integer
-        'AssignedJudge':
-            category['assignedJudge'] ?? '', // Include assigned judge
+        'AssignedJudge': category['assignedJudge'] ?? '', // Store judge role
       });
     }
 
@@ -817,43 +828,57 @@ class _TemplateCreationState extends State<TemplateCreation> {
   }
 
   Widget _buildTemplateForm(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Column(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(25),
-            decoration: BoxDecoration(
-              color: const Color(0xFF9087E5),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (_currentStep == 1) ...[
-                  _buildEventDetailsForm(),
-                ] else if (_currentStep == 2) ...[
-                  _buildJudgesForm(),
-                ] else if (_currentStep == 3) ...[
-                  _buildParticipantForm(),
-                ] else if (_currentStep == 4) ...[
-                  _buildEventMechanicsForm(context),
-                ] else if (_currentStep == 5) ...[
-                  _buildCriteriaForm(),
-                ] else if (_currentStep == 6) ...[
-                  _buildCategoryForm(),
-                ] else if (_currentStep == 7) ...[
-                  _buildTemplateCodeDisplay(),
-                ] else if (_currentStep == 8) ...[
-                  _buildTemplateCreatedDisplay(),
-                ],
-                const SizedBox(height: 16),
-                _buildNavigationButtons(),
-              ],
-            ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        double formWidth = constraints.maxWidth; // Full width for small screens
+        double horizontalPadding = 16;
+        if (constraints.maxWidth >= 600) {
+          formWidth =
+              constraints.maxWidth * 0.3; // 30% width for larger screens
+          horizontalPadding =
+              (constraints.maxWidth - formWidth) / 2; // Centering
+        }
+
+        return Padding(
+          padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
+          child: Column(
+            children: [
+              Container(
+                width: formWidth,
+                padding: const EdgeInsets.all(25),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF9087E5),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (_currentStep == 1) ...[
+                      _buildEventDetailsForm(),
+                    ] else if (_currentStep == 2) ...[
+                      _buildJudgesForm(),
+                    ] else if (_currentStep == 3) ...[
+                      _buildParticipantForm(),
+                    ] else if (_currentStep == 4) ...[
+                      _buildEventMechanicsForm(context),
+                    ] else if (_currentStep == 5) ...[
+                      _buildCriteriaForm(),
+                    ] else if (_currentStep == 6) ...[
+                      _buildCategoryForm(),
+                    ] else if (_currentStep == 7) ...[
+                      _buildTemplateCodeDisplay(),
+                    ] else if (_currentStep == 8) ...[
+                      _buildTemplateCreatedDisplay(),
+                    ],
+                    const SizedBox(height: 16),
+                    _buildNavigationButtons(),
+                  ],
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -1204,68 +1229,68 @@ class _TemplateCreationState extends State<TemplateCreation> {
                 isWeightage: false,
               ),
               const SizedBox(height: 8),
-              // Enhanced dropdown for assigning a judge
+              // Dropdown for assigning a judge role
               _buildTextField(
-                'Assign Judge',
-                TextEditingController(), // Placeholder controller
+                'Assign Judge Role',
+                TextEditingController(),
                 isDropdown: true,
                 dropdownItems: _judges.isNotEmpty
-                    ? _judges.map((judge) => judge['name']!.text).toList()
+                    ? _judges
+                        .map((judge) => judge['role']!.text)
+                        .toSet()
+                        .toList()
                     : [],
                 initialValue: _judges.isNotEmpty &&
-                        _judges.any((judge) =>
-                            judge['name']!.text ==
-                            _category[i]['assignedJudge'])
+                        _judges
+                            .map((judge) => judge['role']!.text)
+                            .contains(_category[i]['assignedJudge'])
                     ? _category[i]['assignedJudge']
-                    : null, // Use null if no valid match
-                onChanged: (selectedJudge) {
+                    : null,
+                onChanged: (selectedRole) {
                   setState(() {
-                    _category[i]['assignedJudge'] = selectedJudge;
+                    _category[i]['assignedJudge'] = selectedRole;
                   });
                 },
               ),
-
               const SizedBox(height: 16),
               for (int j = 0;
                   j < (_category[i]['criteriaList'] ?? []).length;
                   j++) ...[
-                Stack(
-                  alignment: Alignment.centerLeft,
+                Row(
                   children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _buildTextField(
-                            'Criteria',
-                            _category[i]['criteriaList']?[j]['Criteria'] ??
-                                TextEditingController(),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: _buildTextField(
-                            'Weightage',
-                            _category[i]['criteriaList']?[j]['Weightage'] ??
-                                TextEditingController(text: '0'),
-                            isWeightage: true,
-                          ),
-                        ),
-                        const SizedBox(width: 20),
-                      ],
+                    Expanded(
+                      child: _buildTextField(
+                        'Criteria',
+                        _category[i]['criteriaList']?[j]['Criteria'] ??
+                            TextEditingController(),
+                      ),
                     ),
-                    Positioned(
-                      right: 0,
-                      bottom: 0,
-                      child: IconButton(
-                        icon: const Icon(Icons.close,
-                            color: Color.fromARGB(255, 0, 0, 0)),
-                        tooltip: 'Remove Criteria',
-                        onPressed: () {
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: _buildTextField(
+                        'Weightage',
+                        _category[i]['criteriaList']?[j]['Weightage'] ??
+                            TextEditingController(text: '0'),
+                        isWeightage: true,
+                        onChanged: (value) {
                           setState(() {
-                            _category[i]['criteriaList']?.removeAt(j);
+                            _category[i]['criteriaList']?[j]['Weightage']
+                                ?.text = value!;
+                            _calculateTotalWeightageForCategories();
                           });
                         },
                       ),
+                    ),
+                    const SizedBox(width: 8),
+                    IconButton(
+                      icon: const Icon(Icons.close, color: Colors.black),
+                      tooltip: 'Remove Criteria',
+                      onPressed: () {
+                        setState(() {
+                          _category[i]['criteriaList']?.removeAt(j);
+                          _calculateTotalWeightageForCategories();
+                        });
+                      },
                     ),
                   ],
                 ),
@@ -1275,15 +1300,13 @@ class _TemplateCreationState extends State<TemplateCreation> {
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
                   IconButton(
-                    icon: const Icon(Icons.add,
-                        color: Color.fromARGB(255, 0, 0, 0)),
+                    icon: const Icon(Icons.add, color: Colors.black),
                     tooltip: 'Add Criteria',
                     onPressed: () {
                       setState(() {
                         final criteriaController = TextEditingController();
                         final weightageController =
                             TextEditingController(text: '0');
-
                         weightageController.addListener(() {
                           _calculateTotalWeightageForCategories();
                         });
@@ -1302,42 +1325,69 @@ class _TemplateCreationState extends State<TemplateCreation> {
                 ],
               ),
               const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF6A5AE0),
+                  borderRadius: BorderRadius.circular(10),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.grey.withOpacity(0.3),
+                      spreadRadius: 2,
+                      blurRadius: 5,
+                      offset: const Offset(0, 3),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'Total Weightage: ${_category[i]['totalWeightage'] ?? 0}',
+                        style: GoogleFonts.poppins(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                    if (_category[i]['totalWeightage'] > _maxWeightage)
+                      const Icon(
+                        Icons.error,
+                        color: Colors.red,
+                      ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
             ],
           ),
         ],
         Row(
           children: [
             ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(15),
-                ),
-              ),
               onPressed: () {
                 setState(() {
                   final categoryController = TextEditingController();
                   _category.add({
                     'Category': categoryController,
                     'criteriaList': [],
-                    'assignedJudge': null, // Initialize assigned judge as null
+                    'assignedJudge': null,
+                    'totalWeightage': 0,
                   });
                 });
               },
-              child: const Text('Add'),
+              child: const Text('Add Category'),
             ),
-            const SizedBox(width: 15),
+            const SizedBox(width: 5),
             ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(15),
-                ),
-              ),
               onPressed: () {
                 if (_category.isNotEmpty) {
                   _removeCategory(_category.length - 1);
                 }
               },
-              child: const Text('Remove'),
+              child: const Text('Remove Category'),
             ),
           ],
         ),

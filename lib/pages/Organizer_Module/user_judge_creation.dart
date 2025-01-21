@@ -168,8 +168,6 @@ class _JudgeCreationState extends State<JudgeCreation> {
               children: [
                 _buildGreetingSection(),
                 const SizedBox(height: 19),
-                _buildFormCreationSection(context),
-                const SizedBox(height: 19),
                 Expanded(
                   child: SingleChildScrollView(
                     child: _buildForm(),
@@ -236,36 +234,6 @@ class _JudgeCreationState extends State<JudgeCreation> {
           ],
         ),
       ),
-    );
-  }
-
-  Widget _buildFormCreationSection(BuildContext context) {
-    return Row(
-      children: [
-        GestureDetector(
-          onTap: () => Navigator.pop(context),
-          child: Image.asset(
-            'assets/images/Back_Arrow.png',
-            width: 30,
-            height: 30,
-          ),
-        ),
-        const SizedBox(width: 15.3),
-        Expanded(
-          child: Text(
-            widget.judge.isEmpty
-                ? 'Create Judge Account'
-                : 'Edit Judge Account',
-            style: GoogleFonts.poppins(
-              fontWeight: FontWeight.w500,
-              fontSize: 24,
-              height: 1.5,
-              color: const Color(0xFFFFFFFF),
-            ),
-            overflow: TextOverflow.ellipsis,
-          ),
-        ),
-      ],
     );
   }
 
