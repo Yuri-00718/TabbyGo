@@ -46,7 +46,7 @@ class _TemplateCreationState extends State<TemplateCreation> {
     },
   ];
 
-  final List<Map<String, TextEditingController>> _criteria = [
+  final List<Map<String, TextEditingController>> _penalty = [
     {
       'Description': TextEditingController(),
       'Weightage': TextEditingController(),
@@ -102,7 +102,7 @@ class _TemplateCreationState extends State<TemplateCreation> {
 
       _judges.clear();
       _participant.clear();
-      _criteria.clear();
+      _penalty.clear();
       _category.clear();
       _eventMechanics.clear();
 
@@ -120,7 +120,7 @@ class _TemplateCreationState extends State<TemplateCreation> {
 
     _loadJudges();
     _loadParticipants();
-    _loadCriteria();
+    _loadpenalty();
     _loadCategory();
     _loadEventMechanics();
     _calculateTotalWeightage();
@@ -161,18 +161,21 @@ class _TemplateCreationState extends State<TemplateCreation> {
     }
   }
 
-  void _loadCriteria() {
-    if (widget.template!['criteria'] != null) {
-      List<dynamic> criteria = _getListFromTemplate('criteria');
+  void _loadpenalty() {
+    if (widget.template!['penalty'] != null) {
+      List<dynamic> penalty = _getListFromTemplate('penalty');
 
-      for (var criterion in criteria) {
-        _criteria.add({
+      for (var criterion in penalty) {
+        _penalty.add({
           'Description': TextEditingController(text: criterion['Description']),
           'Weightage': TextEditingController(text: criterion['Weightage']),
+          // Handle 'assignedJudge' by converting it to a TextEditingController
+          'assignedJudge':
+              TextEditingController(text: criterion['AssignedJudge'] ?? ''),
         });
       }
     } else {
-      _addCriteria();
+      _addpenalty();
     }
 
     // Calculate total weightage after loading criteria
@@ -280,7 +283,7 @@ class _TemplateCreationState extends State<TemplateCreation> {
       participant['TeamName']?.dispose();
     }
 
-    for (var criterion in _criteria) {
+    for (var criterion in _penalty) {
       criterion['Description']?.dispose();
       criterion['Weightage']?.dispose();
     }
@@ -357,9 +360,9 @@ class _TemplateCreationState extends State<TemplateCreation> {
     });
   }
 
-  void _removeCriteria(int index) {
+  void _removepenalty(int index) {
     setState(() {
-      _criteria.removeAt(index);
+      _penalty.removeAt(index);
       _calculateTotalWeightage();
     });
   }
@@ -370,7 +373,7 @@ class _TemplateCreationState extends State<TemplateCreation> {
     });
   }
 
-  void _addCriteria() {
+  void _addpenalty() {
     final descriptionController = TextEditingController();
     final weightageController = TextEditingController(text: '0');
 
@@ -378,7 +381,7 @@ class _TemplateCreationState extends State<TemplateCreation> {
       _calculateTotalWeightage();
     });
     setState(() {
-      _criteria.add({
+      _penalty.add({
         'Description': descriptionController,
         'Weightage': weightageController,
       });
@@ -412,7 +415,7 @@ class _TemplateCreationState extends State<TemplateCreation> {
   }
 
   void _calculateTotalWeightage() {
-    int total = _criteria.fold<int>(
+    int total = _penalty.fold<int>(
       0,
       (sum, criterion) {
         final weightage =
@@ -510,10 +513,14 @@ class _TemplateCreationState extends State<TemplateCreation> {
     }).toList();
 
     // Convert criteria details to list of maps
-    List<Map<String, dynamic>> criteria = _criteria.map((criterion) {
+// Convert criteria details to list of maps
+    List<Map<String, dynamic>> penalties = _penalty.map((criterion) {
       return {
-        'Description': criterion['Description']?.text ?? '',
-        'Weightage': criterion['Weightage']?.text ?? '',
+        'Description':
+            criterion['Description']?.text ?? '', // Save the text value
+        'Weightage': criterion['Weightage']?.text ?? '', // Save the text value
+        'AssignedJudge': criterion['assignedJudge']?.text ??
+            '', // Save the judge's text value
       };
     }).toList();
 
@@ -566,7 +573,7 @@ class _TemplateCreationState extends State<TemplateCreation> {
       'eventDate': eventDate,
       'judges': judges,
       'participant': participants,
-      'criteria': criteria,
+      'penalty': penalties,
       'categories': categoriesToSave,
       'eventMechanics': eventMechanics,
       'templateCode': _templateCode,
@@ -862,7 +869,7 @@ class _TemplateCreationState extends State<TemplateCreation> {
                     ] else if (_currentStep == 4) ...[
                       _buildEventMechanicsForm(context),
                     ] else if (_currentStep == 5) ...[
-                      _buildCriteriaForm(),
+                      _buildpenaltyForm(),
                     ] else if (_currentStep == 6) ...[
                       _buildCategoryForm(),
                     ] else if (_currentStep == 7) ...[
@@ -1118,27 +1125,52 @@ class _TemplateCreationState extends State<TemplateCreation> {
     }
   }
 
-  Widget _buildCriteriaForm() {
+  Widget _buildpenaltyForm() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        for (int i = 0; i < _criteria.length; i++) ...[
+        for (int i = 0; i < _penalty.length; i++) ...[
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _buildTextField(
-                'Criteria ${i + 1} Description',
-                _criteria[i]['Description']!,
+                'Penalty Criteria ${i + 1} Description',
+                _penalty[i]['Description']!,
               ),
               const SizedBox(height: 16),
               _buildTextField(
                 'Criteria ${i + 1} Weightage',
-                _criteria[i]['Weightage']!,
+                _penalty[i]['Weightage']!,
                 isWeightage: true,
                 onChanged: (value) {
                   setState(() {
-                    _criteria[i]['Weightage']!.text = value!;
+                    _penalty[i]['Weightage']!.text = value!;
                     _calculateTotalWeightage();
+                  });
+                },
+              ),
+              const SizedBox(height: 16),
+              // Dropdown for assigning a judge role
+              _buildTextField(
+                'Assign Judge Role',
+                _penalty[i]['assignedJudge'] ?? TextEditingController(),
+                isDropdown: true,
+                dropdownItems: _judges.isNotEmpty
+                    ? _judges
+                        .map((judge) => judge['role']!.text)
+                        .toSet()
+                        .toList()
+                    : [],
+                initialValue: _penalty[i]['assignedJudge'] != null &&
+                        _judges
+                            .map((judge) => judge['role']!.text)
+                            .contains(_penalty[i]['assignedJudge']!.text)
+                    ? _penalty[i]['assignedJudge']!.text
+                    : null,
+                onChanged: (selectedRole) {
+                  setState(() {
+                    _penalty[i]['assignedJudge'] =
+                        TextEditingController(text: selectedRole);
                   });
                 },
               ),
@@ -1149,7 +1181,7 @@ class _TemplateCreationState extends State<TemplateCreation> {
         Row(
           children: [
             ElevatedButton(
-              onPressed: _addCriteria,
+              onPressed: _addpenalty,
               style: ElevatedButton.styleFrom(
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(10),
@@ -1161,8 +1193,8 @@ class _TemplateCreationState extends State<TemplateCreation> {
             const SizedBox(width: 8),
             ElevatedButton(
               onPressed: () {
-                if (_criteria.isNotEmpty) {
-                  _removeCriteria(_criteria.length - 1);
+                if (_penalty.isNotEmpty) {
+                  _removepenalty(_penalty.length - 1);
                 }
               },
               style: ElevatedButton.styleFrom(
@@ -1195,7 +1227,7 @@ class _TemplateCreationState extends State<TemplateCreation> {
             children: [
               Expanded(
                 child: Text(
-                  'Total Weightage: $_totalWeightage',
+                  'Total Penalty: $_totalWeightage',
                   style: GoogleFonts.poppins(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
@@ -1724,7 +1756,7 @@ class _TemplateCreationState extends State<TemplateCreation> {
     String participantsData = _participant
         .map((p) => "${p['Name']?.text}, Team: ${p['TeamName']?.text}")
         .join("\n");
-    String criteriaData = _criteria
+    String criteriaData = _penalty
         .map((c) => "${c['Description']?.text} (${c['Weightage']?.text}%)")
         .join("\n");
     String categoriesData = _category.map((cat) {
@@ -1775,7 +1807,7 @@ class _TemplateCreationState extends State<TemplateCreation> {
                 const SizedBox(height: 8),
 
                 // Criteria Section
-                _buildSectionTitle("Criteria"),
+                _buildSectionTitle("Penalty Criteria"),
                 _buildSectionContent(criteriaData),
                 const SizedBox(height: 8),
 

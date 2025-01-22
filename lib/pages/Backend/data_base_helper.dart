@@ -52,7 +52,7 @@ class DatabaseHelper {
       participant TEXT,
       eventMechanics TEXT,
       categories TEXT,
-      criteria TEXT,
+      penalty TEXT,
       templateCode TEXT,
       totalWeightage INTEGER
     )
@@ -172,7 +172,7 @@ class DatabaseHelper {
         'eventDate': template['eventDate'] ?? '',
         'judges': jsonEncode(template['judges'] ?? []),
         'participant': jsonEncode(template['participant'] ?? []),
-        'criteria': jsonEncode(template['criteria'] ?? []),
+        'penalty': jsonEncode(template['penalty'] ?? []),
         'categories': jsonEncode(template['categories'] ??
             []), // Ensure this matches your template creation
         'eventMechanics': jsonEncode(template['eventMechanics'] ?? []),
@@ -210,8 +210,8 @@ class DatabaseHelper {
           'participant': result['participant'] != null
               ? jsonDecode(result['participant'] as String)
               : [],
-          'criteria': result['criteria'] != null
-              ? jsonDecode(result['criteria'] as String)
+          'penalty': result['penalty'] != null
+              ? jsonDecode(result['penalty'] as String)
               : [],
           'categories': result['categories'] != null
               ? jsonDecode(result['categories'] as String)
@@ -254,8 +254,8 @@ class DatabaseHelper {
           'participant': template['participant'] != null
               ? jsonDecode(template['participant'] as String)
               : [],
-          'criteria': template['criteria'] != null
-              ? jsonDecode(template['criteria'] as String)
+          'penalty': template['penalty'] != null
+              ? jsonDecode(template['penalty'] as String)
               : [],
           'categories': template['categories'] != null
               ? jsonDecode(template['categories'] as String)
@@ -302,7 +302,7 @@ class DatabaseHelper {
       'eventDate': template['eventDate'] ?? '',
       'judges': jsonEncode(template['judges'] ?? []),
       'participant': jsonEncode(template['participant'] ?? []),
-      'criteria': jsonEncode(template['criteria'] ?? []),
+      'penalty': jsonEncode(template['penalty'] ?? []),
       'categories': jsonEncode(template['categories'] ?? []),
       'eventMechanics': jsonEncode(template['eventMechanics'] ?? []),
       'templateCode': template['templateCode'] ?? 'No Code',
@@ -979,12 +979,12 @@ class DatabaseHelper {
   Future<List<Map<String, dynamic>>> getScoresheets() async {
     try {
       final querySnapshot =
-          await FirebaseFirestore.instance.collection('scoresheets').get();
+          await FirebaseFirestore.instance.collection('categoryScores').get();
       return querySnapshot.docs.map((doc) => doc.data()).toList();
     } catch (e) {
       // Handle any errors here
       if (kDebugMode) {
-        print("Error fetching scoresheets: $e");
+        print("Error fetching : $e");
       }
       return [];
     }

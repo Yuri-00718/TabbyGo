@@ -58,6 +58,7 @@ flutter:
   - assets/JSON/Catsu.json
   - assets/JSON/LOADING.json
   - assets/images/text logo black.png
+  - assets/images/new-tabby.png
   - assets/images/Template.png
   - assets/images/sync.png
   - assets/images/Delete.png

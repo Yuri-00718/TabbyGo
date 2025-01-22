@@ -55,7 +55,7 @@ class _ResultState extends State<Result> {
 
     try {
       QuerySnapshot querySnapshot = await FirebaseFirestore.instance
-          .collection('scoresheets')
+          .collection('Penalties')
           .where('eventName', isEqualTo: widget.eventName)
           .get();
 
@@ -313,15 +313,14 @@ class _ResultState extends State<Result> {
                 StreamBuilder<QuerySnapshot>(
                   stream: FirebaseFirestore.instance
                       .collection('categoryScores')
-                      .where('eventName',
-                          isEqualTo: widget.eventName) // Filter by eventName
+                      .where('eventName', isEqualTo: widget.eventName)
                       .snapshots(),
                   builder: (context, snapshot) {
                     if (!snapshot.hasData) {
                       return const CircularProgressIndicator();
                     }
 
-                    Set<String> categoryNames = {'Main Criteria'};
+                    Set<String> categoryNames = {}; // Initialize an empty set
                     for (var doc in snapshot.data!.docs) {
                       var data = doc.data() as Map<String, dynamic>;
                       var categoryName = data['categoryName'] as String?;
@@ -331,6 +330,11 @@ class _ResultState extends State<Result> {
                     }
 
                     var uniqueCategoryList = categoryNames.toList()..sort();
+
+                    // If there are categories, include "Overall" option
+                    if (uniqueCategoryList.isNotEmpty) {
+                      uniqueCategoryList.insert(0, "Overall");
+                    }
 
                     return Container(
                       alignment: Alignment.center,
@@ -394,11 +398,15 @@ class _ResultState extends State<Result> {
         else
           StreamBuilder<QuerySnapshot>(
             stream: FirebaseFirestore.instance
-                .collection('scoresheets')
-                .where('eventName', isEqualTo: widget.eventName)
+                .collection('categoryScores')
+                .where('eventName',
+                    isEqualTo: widget.eventName) // Filter by eventName
+                .where('categoryName',
+                    isEqualTo:
+                        _selectedCategory ?? '') // Filter by selected category
                 .snapshots(),
-            builder: (context, overallSnapshot) {
-              if (overallSnapshot.connectionState == ConnectionState.waiting &&
+            builder: (context, categorySnapshot) {
+              if (categorySnapshot.connectionState == ConnectionState.waiting &&
                   !_isLoading) {
                 return Center(
                   child: Lottie.asset(
@@ -410,15 +418,16 @@ class _ResultState extends State<Result> {
                 );
               }
 
-              if (overallSnapshot.hasError) {
+              if (categorySnapshot.hasError) {
                 return Center(
-                  child: Text("Error fetching data: ${overallSnapshot.error}"),
+                  child: Text(
+                      "Error fetching category scores: ${categorySnapshot.error}"),
                 );
               }
 
-              // Check if there are no overall scores found
-              if (!overallSnapshot.hasData ||
-                  overallSnapshot.data!.docs.isEmpty) {
+              // Check if no category scores found
+              if (!categorySnapshot.hasData ||
+                  categorySnapshot.data!.docs.isEmpty) {
                 return Center(
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -439,7 +448,7 @@ class _ResultState extends State<Result> {
                           ),
                           children: [
                             TextSpan(
-                              text: '\nEvent Not Started Yet',
+                              text: '\nNo Category Scores Found',
                               style: GoogleFonts.poppins(
                                   fontWeight: FontWeight.w600,
                                   fontSize: 18,
@@ -447,162 +456,88 @@ class _ResultState extends State<Result> {
                             ),
                           ],
                         ),
-                        textAlign: TextAlign.center, // Center the text
+                        textAlign: TextAlign.center,
                       ),
                     ],
                   ),
                 );
               }
 
-              // Collecting participant scores from scoresheets
+              // Collecting participant scores from categoryScores
               Map<String, Map<String, dynamic>> participantScores = {};
-              for (var doc in overallSnapshot.data!.docs) {
+              Map<String, int> categoryCount =
+                  {}; // To track how many categories each participant has
+
+              for (var doc in categorySnapshot.data!.docs) {
                 final data = doc.data() as Map<String, dynamic>;
                 String participantId = data['participantId'].toString();
                 String name = data['participantName'] ?? 'Unknown';
                 String photoUrl = data['participantPhoto'] ?? '';
-                int totalScore = data['totalScore'] ?? 0;
+                int totalCategoryScore = data['totalCategoryScore'] ?? 0;
+                String categoryName = data['categoryName'] ?? 'Unknown';
 
                 // Initialize participant data if not already present
                 if (!participantScores.containsKey(participantId)) {
                   participantScores[participantId] = {
                     'name': name,
-                    'totalScore': 0,
+                    'totalScore': 0, // Will be updated with category score
                     'participantPhoto': photoUrl,
-                    'judgeCount': 0, // Initialize judge count
+                    'categoryScores': {},
+                    'totalCategories': 0, // To track the number of categories
                   };
                 }
 
-                // Accumulate scores and increment judge count
-                participantScores[participantId]!['totalScore'] += totalScore;
-                participantScores[participantId]!['judgeCount'] +=
-                    1; // Count the judges
+                // Update category scores and participant's total score
+                participantScores[participantId]!['categoryScores']
+                    [categoryName] = totalCategoryScore;
+                participantScores[participantId]!['totalScore'] +=
+                    totalCategoryScore;
+                participantScores[participantId]!['totalCategories']++;
+
+                // Track how many categories each participant is part of
+                categoryCount[participantId] =
+                    (categoryCount[participantId] ?? 0) + 1;
               }
 
-              // Average scores based on the number of judges
+              // Calculate the average score per participant across all categories
               participantScores.forEach((participantId, scoreData) {
-                int judgeCount =
-                    scoreData['judgeCount'] ?? 1; // Avoid division by zero
-                scoreData['totalScore'] =
-                    (scoreData['totalScore'] ~/ judgeCount).clamp(0, 100);
+                int totalScore = scoreData['totalScore'] ?? 0;
+                int totalCategories = scoreData['totalCategories'] ?? 0;
+
+                if (totalCategories > 0) {
+                  // Calculate the average score across all categories for each participant
+                  participantScores[participantId]!['averageScore'] =
+                      totalScore / totalCategories;
+                }
               });
 
-              // Check if a category is selected
-              if (_selectedCategory != null) {
-                // Fetch category scores only when a specific category is selected
-                if (_selectedCategory != 'Main Criteria') {
-                  return StreamBuilder<QuerySnapshot>(
-                    stream: FirebaseFirestore.instance
-                        .collection('categoryScores')
-                        .where('categoryName', isEqualTo: _selectedCategory)
-                        .snapshots(),
-                    builder: (context, categorySnapshot) {
-                      if (categorySnapshot.connectionState ==
-                          ConnectionState.waiting) {
-                        return Center(
-                          child: Lottie.asset(
-                            'assets/JSON/LOADING.json',
-                            width: 350,
-                            height: 250,
-                            fit: BoxFit.fill,
-                          ),
-                        );
-                      }
+              // Prepare scores for category display
+              var filteredScores = participantScores.values.toList();
+              filteredScores.sort(
+                  (a, b) => b['averageScore'].compareTo(a['averageScore']));
 
-                      if (categorySnapshot.hasError) {
-                        return Center(
-                          child: Text(
-                              "Error fetching category scores: ${categorySnapshot.error}"),
-                        );
-                      }
-
-                      // Collecting participant scores from categoryScores
-                      for (var doc in categorySnapshot.data!.docs) {
-                        final data = doc.data() as Map<String, dynamic>;
-                        String participantId = data['participantId'].toString();
-                        String name = data['participantName'] ?? 'Unknown';
-                        String photoUrl = data['participantPhoto'] ?? '';
-                        int totalCategoryScore =
-                            data['totalCategoryScore'] ?? 0;
-
-                        // Update participant scores for the selected category
-                        if (participantScores.containsKey(participantId)) {
-                          participantScores[participantId]!['totalScore'] =
-                              totalCategoryScore;
-                          participantScores[participantId]!['source'] =
-                              'categoryScores';
-                        } else {
-                          participantScores[participantId] = {
-                            'name': name,
-                            'totalScore': totalCategoryScore,
-                            'participantPhoto': photoUrl,
-                            'source': 'categoryScores',
-                          };
-                        }
-                      }
-
-                      // Prepare scores for category display
-                      var filteredScores = participantScores.values.toList();
-                      filteredScores.sort(
-                          (a, b) => b['totalScore'].compareTo(a['totalScore']));
-
-                      return Stack(
-                        alignment: Alignment.center,
-                        children: [
-                          Positioned(
-                            bottom: 100,
-                            child: SizedBox(
-                              width: screenWidth,
-                              height: screenHeight * 0.40,
-                              child: Image.asset(
-                                'assets/images/POLE.png',
-                                fit: BoxFit.contain,
-                                alignment: Alignment.bottomCenter,
-                              ),
-                            ),
-                          ),
-                          _buildPodiumWinnerInfo(
-                            filteredScores.take(3).toList(),
-                            screenHeight,
-                            screenWidth,
-                          ),
-                        ],
-                      );
-                    },
-                  );
-                } else {
-                  // Overall Scores Display
-                  var filteredScores = participantScores.values.toList();
-
-                  // Sort by the total score
-                  filteredScores.sort(
-                      (a, b) => b['totalScore'].compareTo(a['totalScore']));
-
-                  return Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      Positioned(
-                        bottom: 100,
-                        child: SizedBox(
-                          width: screenWidth,
-                          height: screenHeight * 0.40,
-                          child: Image.asset(
-                            'assets/images/POLE.png',
-                            fit: BoxFit.contain,
-                            alignment: Alignment.bottomCenter,
-                          ),
-                        ),
+              return Stack(
+                alignment: Alignment.center,
+                children: [
+                  Positioned(
+                    bottom: 100,
+                    child: SizedBox(
+                      width: screenWidth,
+                      height: screenHeight * 0.40,
+                      child: Image.asset(
+                        'assets/images/POLE.png',
+                        fit: BoxFit.contain,
+                        alignment: Alignment.bottomCenter,
                       ),
-                      _buildPodiumWinnerInfo(
-                        filteredScores.take(3).toList(),
-                        screenHeight,
-                        screenWidth,
-                      ),
-                    ],
-                  );
-                }
-              }
-              return const SizedBox(); // Fallback in case of issues
+                    ),
+                  ),
+                  _buildPodiumWinnerInfo(
+                    filteredScores.take(3).toList(),
+                    screenHeight,
+                    screenWidth,
+                  ),
+                ],
+              );
             },
           ),
       ],
@@ -611,19 +546,15 @@ class _ResultState extends State<Result> {
 
   Widget _buildPodiumWinnerInfo(List<Map<String, dynamic>> topScores,
       double screenHeight, double screenWidth) {
-    bool isMobile = screenWidth < 600;
-
     return Stack(
       alignment: Alignment.bottomCenter,
       children: [
         if (topScores.length > 1)
           Positioned(
             bottom: screenHeight * 0.42,
-            right: isMobile ? screenWidth * 0.64 : screenWidth * 0.44,
-            child: ConstrainedBox(
-              constraints: BoxConstraints(
-                maxWidth: screenWidth * 0.25,
-              ),
+            right: screenWidth * 0.64,
+            child: SizedBox(
+              width: screenWidth * 0.25,
               child: Align(
                 alignment: Alignment.center,
                 child: _buildWinnerInfo(
@@ -637,10 +568,8 @@ class _ResultState extends State<Result> {
         if (topScores.isNotEmpty)
           Positioned(
             bottom: screenHeight * 0.46,
-            child: ConstrainedBox(
-              constraints: BoxConstraints(
-                maxWidth: screenWidth * 0.3,
-              ),
+            child: SizedBox(
+              width: screenWidth * 0.3,
               child: Align(
                 alignment: Alignment.center,
                 child: _buildWinnerInfo(
@@ -654,11 +583,9 @@ class _ResultState extends State<Result> {
         if (topScores.length > 2)
           Positioned(
             bottom: screenHeight * 0.38,
-            left: isMobile ? screenWidth * 0.63 : screenWidth * 0.44,
-            child: ConstrainedBox(
-              constraints: BoxConstraints(
-                maxWidth: screenWidth * 0.25,
-              ),
+            left: screenWidth * 0.63,
+            child: SizedBox(
+              width: screenWidth * 0.25,
               child: Align(
                 alignment: Alignment.center,
                 child: _buildWinnerInfo(
@@ -674,6 +601,7 @@ class _ResultState extends State<Result> {
   }
 
   Widget _buildWinnerInfo(String name, String photoUrl, String points) {
+    // Define the text style for participant names
     final TextStyle resultsStyle = GoogleFonts.poppins(
       fontWeight: FontWeight.w500,
       fontSize: 15,
@@ -708,15 +636,12 @@ class _ResultState extends State<Result> {
           ),
         ),
         const SizedBox(height: 4),
-        SizedBox(
-          width: 100, // Constrain the width
-          child: Text(
-            name,
-            textAlign: TextAlign.center,
-            overflow: TextOverflow.ellipsis,
-            maxLines: 1,
-            style: resultsStyle,
-          ),
+        Text(
+          name,
+          textAlign: TextAlign.center,
+          overflow: TextOverflow.ellipsis,
+          maxLines: 1,
+          style: resultsStyle,
         ),
         const SizedBox(height: 4),
         Container(
@@ -759,19 +684,23 @@ class _ResultState extends State<Result> {
 
             return StreamBuilder<QuerySnapshot>(
               stream: FirebaseFirestore.instance
-                  .collection('scoresheets')
+                  .collection('categoryScores') // Only stream category scores
                   .snapshots(),
               builder: (context, snapshot) {
                 if (!snapshot.hasData) {
                   return const Center(child: CircularProgressIndicator());
                 }
-                bool hasRanks = snapshot.data!.docs.any((doc) {
+
+                // Check if there are any category scores for the event
+                bool hasCategoryScores = snapshot.data!.docs.any((doc) {
                   final data = doc.data() as Map<String, dynamic>;
                   return data['eventName'] == eventName;
                 });
-                if (!hasRanks) {
+
+                if (!hasCategoryScores) {
                   return Container();
                 }
+
                 return Container(
                   decoration: const BoxDecoration(
                     color: Color(0xFFEFEEFC),
@@ -810,9 +739,7 @@ class _ResultState extends State<Result> {
                           controller: scrollController,
                           padding: const EdgeInsets.all(16),
                           children: [
-                            // Remove Spacer to bring the text closer to the bottom
-                            const SizedBox(
-                                height: 1), // Optional: Small spacing above
+                            const SizedBox(height: 1),
                             Text(
                               'Additional Ranks',
                               style: GoogleFonts.poppins(
@@ -820,11 +747,8 @@ class _ResultState extends State<Result> {
                                 fontSize: 18,
                               ),
                             ),
-                            const SizedBox(
-                                height:
-                                    1), // Reduce this size to move it even closer to the ranks
-                            _buildRankList(eventName,
-                                selectedCategory), // Pass the selected category
+                            const SizedBox(height: 1),
+                            _buildRankList(eventName, selectedCategory),
                           ],
                         ),
                       ),
@@ -841,7 +765,10 @@ class _ResultState extends State<Result> {
 
   Widget _buildRankList(String eventName, String? selectedCategory) {
     return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance.collection('scoresheets').snapshots(),
+      stream: FirebaseFirestore.instance
+          .collection('categoryScores')
+          .where('eventName', isEqualTo: eventName)
+          .snapshots(),
       builder: (context, snapshot) {
         if (!snapshot.hasData) {
           return const Center(child: CircularProgressIndicator());
@@ -852,103 +779,84 @@ class _ResultState extends State<Result> {
         for (var doc in snapshot.data!.docs) {
           final data = doc.data() as Map<String, dynamic>;
 
-          if (data['eventName'] == eventName) {
-            String participantId = data['participantId'].toString();
-            String name = data['participantName'] ?? 'Unknown';
-            String photoUrl = data['participantPhoto'] ?? '';
-            int totalScore = data['totalScore'] ?? 0;
-
-            // Initialize participant scores
-            if (!participantScores.containsKey(participantId)) {
-              participantScores[participantId] = {
-                'name': name,
-                'totalScore': 0.0, // Initialize total score for main criteria
-                'participantPhoto': photoUrl,
-                'judgeCount': 0,
-                'categoryScores': {},
-              };
-            }
-
-            // Increment judge count and sum the scores for main criteria
-            participantScores[participantId]!['judgeCount'] += 1;
-            participantScores[participantId]!['totalScore'] += totalScore;
-
-            // Update category scores if applicable
-            if (data['categoryScores'] != null) {
-              data['categoryScores'].forEach((category, score) {
-                participantScores[participantId]!['categoryScores'].update(
-                    category, (value) => value + score,
-                    ifAbsent: () => score);
-              });
-            }
+          // Filter by category if a category is selected
+          String categoryName = data['categoryName'] ?? 'Unknown';
+          if (selectedCategory != null && selectedCategory != categoryName) {
+            continue;
           }
+
+          String participantId = data['participantId'].toString();
+          String name = data['participantName'] ?? 'Unknown';
+          String photoUrl = data['participantPhoto'] ?? '';
+          int totalCategoryScore = data['totalCategoryScore'] ?? 0;
+
+          // Initialize participant scores if they don't exist
+          if (!participantScores.containsKey(participantId)) {
+            participantScores[participantId] = {
+              'name': name,
+              'totalScore': 0, // Initialize total score for category
+              'participantPhoto': photoUrl,
+              'judgeCount': 0,
+              'categoryScores': {},
+              'overallScore': 0, // Store the overall score
+              'categoryCount':
+                  0, // Count how many categories the participant is involved in
+            };
+          }
+
+          // Increment judge count and sum the category score
+          participantScores[participantId]!['judgeCount'] += 1;
+          participantScores[participantId]!['totalScore'] += totalCategoryScore;
+
+          // Update category scores
+          participantScores[participantId]!['categoryScores'][categoryName] =
+              totalCategoryScore;
         }
 
-        // Average the total scores based on the number of judges
+        // Calculate the average score for each participant per category
         participantScores.forEach((participantId, scoreData) {
-          int judgeCount =
-              scoreData['judgeCount'] ?? 1; // Avoid division by zero
-          scoreData['totalScore'] /= judgeCount; // Average score
-          scoreData['totalScore'] =
-              scoreData['totalScore'].clamp(0, 100); // Cap the score at 100
+          // Calculate the average score for each category
+          int totalCategoryScore = scoreData['totalScore'] ?? 0;
+          int judgeCount = scoreData['judgeCount'] ?? 0;
+
+          // Calculate the average score per category if there are any judges
+          if (judgeCount > 0) {
+            double avgCategoryScore = totalCategoryScore / judgeCount;
+            participantScores[participantId]!['overallScore'] +=
+                avgCategoryScore;
+            participantScores[participantId]!['categoryCount'] += 1;
+          }
         });
 
-        // Handle category filtering
-        if (selectedCategory != null && selectedCategory != 'Main Criteria') {
-          return StreamBuilder<QuerySnapshot>(
-            stream: FirebaseFirestore.instance
-                .collection('categoryScores')
-                .where('categoryName', isEqualTo: selectedCategory)
-                .snapshots(),
-            builder: (context, categorySnapshot) {
-              if (categorySnapshot.connectionState == ConnectionState.waiting) {
-                return const Center(child: CircularProgressIndicator());
-              }
+        // Now, calculate the overall average score for each participant
+        participantScores.forEach((participantId, scoreData) {
+          int categoryCount = scoreData['categoryCount'] ?? 0;
+          double overallScore = scoreData['overallScore'] ?? 0;
 
-              // Update scores based on category selection
-              for (var doc in categorySnapshot.data!.docs) {
-                final data = doc.data() as Map<String, dynamic>;
-                String participantId = data['participantId'].toString();
-                int totalCategoryScore = data['totalCategoryScore'] ?? 0;
+          // Calculate the final overall average score for each participant
+          if (categoryCount > 0) {
+            double finalOverallScore = overallScore / categoryCount;
+            participantScores[participantId]!['overallScore'] =
+                finalOverallScore;
+          }
+        });
 
-                // If the participant exists, update their score for the category view
-                if (participantScores.containsKey(participantId)) {
-                  participantScores[participantId]!['totalScore'] =
-                      totalCategoryScore; // Only for category view
-                } else {
-                  participantScores[participantId] = {
-                    'name': data['participantName'] ?? 'Unknown',
-                    'totalScore': totalCategoryScore,
-                    'participantPhoto': data['participantPhoto'] ?? '',
-                    'judgeCount': 0,
-                    'categoryScores': {},
-                  };
-                }
-              }
-
-              var sortedScores = _getSortedScores(participantScores);
-              return _buildRankListView(sortedScores);
-            },
-          );
-        }
-
+        // Sort the participants based on overall score
         var sortedScores = _getSortedScores(participantScores);
+
         return _buildRankListView(sortedScores);
       },
     );
   }
 
   List _getSortedScores(Map<String, Map<String, dynamic>> participantScores) {
-    // Create a new list to store capped total scores
+    // Create a list to store capped total scores
     var cappedScores = [];
 
     // Iterate through each participant's scores
     participantScores.forEach((participantId, scoreData) {
-      // Get totalScore as double and convert it to int if necessary
-      double totalScoreDouble = scoreData['totalScore']?.toDouble() ?? 0.0;
-
-      // Cap the score at 100 and convert to int
-      int totalScore = totalScoreDouble.clamp(0, 100).toInt();
+      // Get totalScore as int (already clamped in the logic above)
+      int totalScore = scoreData['totalScore'] ?? 0;
 
       // Prepare score entry
       cappedScores.add({
@@ -964,8 +872,7 @@ class _ResultState extends State<Result> {
     // Sort the scores in descending order
     cappedScores.sort((a, b) => b['totalScore'].compareTo(a['totalScore']));
 
-    // Return only participants ranked 4th or below
-    return cappedScores.skip(3).toList(); // Skip the top 3 participants
+    return cappedScores;
   }
 
   Widget _buildRankListView(List<dynamic> sortedScores) {
@@ -973,13 +880,19 @@ class _ResultState extends State<Result> {
       return const Center(child: Text("No ranks available"));
     }
 
+    // Start from index 3 to skip top 3 ranks
+    var startIndex = 3;
+    var filteredScores =
+        sortedScores.sublist(startIndex); // Only show ranks from 4th onwards
+
     return SizedBox(
       height: 400,
       child: ListView.builder(
         padding: EdgeInsets.zero,
-        itemCount: sortedScores.length,
+        itemCount: filteredScores.length,
         itemBuilder: (context, index) {
-          var participant = sortedScores[index];
+          var participant = filteredScores[index];
+
           return Container(
             decoration: BoxDecoration(
               color: const Color(0xFFE6E6E6),
@@ -989,7 +902,7 @@ class _ResultState extends State<Result> {
             padding: const EdgeInsets.all(12),
             child: Row(
               children: [
-                // Display the rank
+                // Display the rank, starting from 4th
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
@@ -997,7 +910,7 @@ class _ResultState extends State<Result> {
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
-                    '${index + 4}th',
+                    '${startIndex + index + 1}th', // Adjust the rank based on the startIndex
                     style: GoogleFonts.rubik(
                       fontWeight: FontWeight.w500,
                       fontSize: 16,
@@ -1042,19 +955,6 @@ class _ResultState extends State<Result> {
                           color: Colors.grey[600],
                         ),
                       ),
-                      // Display category scores if available
-                      ...participant['categoryScores']
-                          .entries
-                          .map((categoryEntry) {
-                        return Text(
-                          '${categoryEntry.key}: ${categoryEntry.value} POINTS',
-                          style: GoogleFonts.rubik(
-                            fontWeight: FontWeight.w400,
-                            fontSize: 14,
-                            color: Colors.grey[600],
-                          ),
-                        );
-                      }).toList(),
                     ],
                   ),
                 ),

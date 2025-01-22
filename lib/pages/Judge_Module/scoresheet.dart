@@ -6,6 +6,7 @@ import 'package:tabby/pages/Backend/data_base_helper.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:tabby/pages/Judge_Module/Judge_Chat_Module.dart';
+//import 'package:tabby/pages/Judge_Module/Judge_Chat_Module.dart';
 
 class ScoresheetPage extends StatefulWidget {
   const ScoresheetPage({super.key});
@@ -20,7 +21,7 @@ class _ScoresheetPageState extends State<ScoresheetPage> {
   int currentParticipantIndex = 0;
 
   List<dynamic> _participants = [];
-  List<dynamic> _criteria = [];
+  List<Map<String, dynamic>> _penalty = [];
   List<List<int>> scores = [];
   List<Map<String, dynamic>> _categories = [];
   List<List<int>> categoryScores = [];
@@ -35,12 +36,22 @@ class _ScoresheetPageState extends State<ScoresheetPage> {
 
   bool isCriteriaEvaluated = false;
   bool isInCategoryEvaluation = false;
+  bool isPenaltyRoleSelected = false;
 
   @override
   void initState() {
     super.initState();
     _fetchTemplateDetails();
     _fetchJudgeDetails();
+  }
+
+  bool _areAllFieldsValid() {
+    for (var controller in _scoreControllers) {
+      if (controller.text.isEmpty || double.tryParse(controller.text) == null) {
+        return false;
+      }
+    }
+    return true;
   }
 
   Future<void> _fetchJudgeDetails() async {
@@ -62,7 +73,7 @@ class _ScoresheetPageState extends State<ScoresheetPage> {
           _parseTemplateDetails(details);
           scores = List.generate(
             _participants.length,
-            (_) => List.filled(_criteria.length, 0),
+            (_) => List.filled(_penalty.length, 0),
           );
           _initializeScoreControllers();
 
@@ -85,29 +96,21 @@ class _ScoresheetPageState extends State<ScoresheetPage> {
   }
 
   void _parseTemplateDetails(Map<String, dynamic> details) {
-    // Print the fetched details for debugging
-    print('Fetched template details: $details');
-
+    // Parse participants
     _participants = details['participant'] != null
         ? List<Map<String, dynamic>>.from(details['participant'])
             .map((participant) {
-            // Assuming you want to set an ID field
-            participant['id'] = participant['Number']; // or any unique field
+            participant['id'] = participant['Number']; // Assign unique ID
             return participant;
           }).toList()
         : [];
 
-    // Print participants to ensure IDs are present
-    print('Participants: $_participants');
-    _participants.forEach((participant) {
-      print(
-          'Participant ID: ${participant['id']}'); // Should now print correctly
-    });
-
-    _criteria = details['criteria'] != null
-        ? List<Map<String, dynamic>>.from(details['criteria'])
+    // Parse penalty
+    _penalty = details['penalty'] != null
+        ? List<Map<String, dynamic>>.from(details['penalty'])
         : [];
 
+    // Parse categories
     _categories = details['categories'] != null
         ? (details['categories'] as List<dynamic>).map((categoryData) {
             return {
@@ -127,17 +130,18 @@ class _ScoresheetPageState extends State<ScoresheetPage> {
   }
 
   void _showRoleSelectionModal(Map<String, dynamic> details) {
-    // Extract unique judge roles from categories
-    List<String> roles = _categories
-        .map((category) => category['AssignedJudge'] as String)
-        .toSet()
-        .toList();
+    List<String> roles = [
+      ..._categories
+          .map((category) => category['AssignedJudge'] as String)
+          .toSet(),
+      ..._penalty.map((penalty) => penalty['AssignedJudge'] as String).toSet(),
+    ].toList();
 
-    String? temporaryRole; // Temporarily store the selected role
+    String? temporaryRole;
 
     showDialog(
       context: context,
-      barrierDismissible: false, // Prevent closing without selection
+      barrierDismissible: false,
       builder: (BuildContext context) {
         return StatefulBuilder(
           builder: (context, setState) {
@@ -148,7 +152,7 @@ class _ScoresheetPageState extends State<ScoresheetPage> {
               ),
               title: Center(
                 child: Text(
-                  'Select Judge Role',
+                  'Select Your Role',
                   style: GoogleFonts.poppins(
                     fontWeight: FontWeight.bold,
                     fontSize: 20,
@@ -166,7 +170,10 @@ class _ScoresheetPageState extends State<ScoresheetPage> {
                   ),
                   onChanged: (String? newValue) {
                     setState(() {
-                      temporaryRole = newValue; // Update temporary role
+                      temporaryRole = newValue;
+                      // Set isPenaltyRoleSelected based on the selected role
+                      isPenaltyRoleSelected = _penalty.any(
+                          (penalty) => penalty['AssignedJudge'] == newValue);
                     });
                   },
                   dropdownColor: const Color.fromARGB(255, 132, 96, 214),
@@ -202,42 +209,40 @@ class _ScoresheetPageState extends State<ScoresheetPage> {
               actions: [
                 ElevatedButton(
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.white, // Button background color
+                    backgroundColor: Colors.white,
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8), // Rounded corners
+                      borderRadius: BorderRadius.circular(8),
                     ),
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 8, // Reduced horizontal padding
-                      vertical: 4, // Reduced vertical padding
+                      horizontal: 16,
+                      vertical: 8,
                     ),
                   ),
                   onPressed: () {
                     if (temporaryRole == null) {
-                      // Show a warning if no role is selected
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
                           content: Text(
-                            'Please select a judge role before proceeding.',
-                            style: GoogleFonts.poppins(), // Font style
+                            'Please select your Role before proceeding.',
+                            style: GoogleFonts.poppins(),
                           ),
+                          behavior: SnackBarBehavior.floating,
                         ),
                       );
                     } else {
                       setState(() {
-                        selectedRole =
-                            temporaryRole; // Update the selected judge role
-                        _filterCategoriesByRole(); // Apply role filter
+                        selectedRole = temporaryRole;
                       });
-                      Navigator.of(context).pop(); // Close dialog
+                      _filterCategoriesByRole();
+                      _filterPenaltiesByRole();
+                      Navigator.of(context).pop();
                     }
                   },
-                  child: Center(
-                    child: Text(
-                      'Done',
-                      style: GoogleFonts.poppins(
-                        fontWeight: FontWeight.bold,
-                        color: const Color.fromARGB(255, 132, 96, 214),
-                      ),
+                  child: Text(
+                    'Done',
+                    style: GoogleFonts.poppins(
+                      fontWeight: FontWeight.bold,
+                      color: const Color.fromARGB(255, 132, 96, 214),
                     ),
                   ),
                 ),
@@ -247,15 +252,6 @@ class _ScoresheetPageState extends State<ScoresheetPage> {
         );
       },
     );
-  }
-
-  void _filterCategoriesByRole() {
-    if (selectedRole != null) {
-      // Filter categories based on the selected judge role
-      _categories = _categories
-          .where((category) => category['AssignedJudge'] == selectedRole)
-          .toList();
-    }
   }
 
   //participant getter natin idol
@@ -270,8 +266,81 @@ class _ScoresheetPageState extends State<ScoresheetPage> {
     });
   }
 
+  // Filter categories based on the selected role
+  void _filterCategoriesByRole() {
+    if (selectedRole != null && selectedRole!.isNotEmpty) {
+      print('Filtering categories for role: $selectedRole');
+
+      // Filter categories based on the selected role
+      List<Map<String, dynamic>> filteredCategories = _categories
+          .where((category) =>
+              category['AssignedJudge']?.trim().toLowerCase() ==
+              selectedRole!.trim().toLowerCase())
+          .toList();
+
+      print('Filtered Categories: $filteredCategories');
+
+      if (filteredCategories.isNotEmpty) {
+        // Update categories if valid ones are available
+        setState(() {
+          _categories = filteredCategories;
+          currentCategoryIndex = 0; // Start from the first filtered category
+          isCriteriaEvaluated =
+              false; // Only evaluate criteria when categories are available
+        });
+      } else {
+        setState(() {
+          _categories = [];
+          currentCategoryIndex = -1; // No valid categories
+        });
+      }
+    } else {
+      print('No selected role, categories cannot be filtered.');
+      setState(() {
+        _categories = [];
+        currentCategoryIndex = -1;
+        isCriteriaEvaluated = true; // No categories to evaluate
+      });
+    }
+
+    print('After filtering categories:');
+    print('Categories: $_categories');
+    print('isCriteriaEvaluated: $isCriteriaEvaluated');
+    print('Current Category Index: $currentCategoryIndex');
+  }
+
+// Filter penalties based on the selected role
+  void _filterPenaltiesByRole() {
+    print('Filtering penalties for role: $selectedRole');
+
+    // Filter penalties based on the selected role
+    List<Map<String, dynamic>> filteredPenalties = _penalty
+        .where((penalty) =>
+            penalty['AssignedJudge']?.trim().toLowerCase() ==
+            selectedRole!.trim().toLowerCase())
+        .toList();
+
+    print('Filtered Penalties: $filteredPenalties');
+
+    if (filteredPenalties.isNotEmpty) {
+      setState(() {
+        _penalty = filteredPenalties;
+        isCriteriaEvaluated =
+            true; // Once penalties are available, mark as evaluated
+      });
+    } else {
+      setState(() {
+        _penalty = [];
+        isCriteriaEvaluated = true; // No penalties to display, still evaluated
+      });
+    }
+
+    print('After filtering penalties:');
+    print('Penalties: $_penalty');
+    print('isCriteriaEvaluated: $isCriteriaEvaluated');
+  }
+
   void _saveSheets() async {
-    // Participant-related data
     final participantId = currentParticipant['id'];
     final judgeEmail = FirebaseAuth.instance.currentUser?.email;
     final judgeId = FirebaseAuth.instance.currentUser?.uid;
@@ -284,23 +353,19 @@ class _ScoresheetPageState extends State<ScoresheetPage> {
       return;
     }
 
-    // Check if scores for the current participant exist
     if (scores.length <= currentParticipantIndex ||
         scores[currentParticipantIndex].isEmpty) {
       _showErrorSnackBar('No scores available for the current participant.');
       return;
     }
 
-    // Collect participant scores
     List<int> currentScores = scores[currentParticipantIndex];
 
-    // Check for any negative scores
     if (currentScores.any((score) => score < 0)) {
       _showErrorSnackBar('Scores cannot be negative.');
       return;
     }
 
-    // Ensure currentScores is not empty
     if (currentScores.isEmpty) {
       _showErrorSnackBar('No scores to save.');
       return;
@@ -317,7 +382,7 @@ class _ScoresheetPageState extends State<ScoresheetPage> {
       }
 
       String? eventName = templateDetails['eventName'];
-      List currentCriteriaDescriptions = _criteria
+      List currentCriteriaDescriptions = _penalty
           .map((criterion) => criterion['Description'] ?? 'N/A')
           .toList();
 
@@ -335,16 +400,15 @@ class _ScoresheetPageState extends State<ScoresheetPage> {
         'timestamp': FieldValue.serverTimestamp(),
       };
 
-      // Save participant scores only
-      await FirebaseFirestore.instance.collection('scoresheets').add(scoreData);
+      await FirebaseFirestore.instance.collection('Penalties').add(scoreData);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Scores saved successfully!')),
+          const SnackBar(content: Text('Penalty scores saved successfully!')),
         );
       }
     } catch (error) {
-      _showErrorSnackBar('Error saving scores: $error');
+      _showErrorSnackBar('Error saving penalty scores: $error');
     }
   }
 
@@ -441,7 +505,7 @@ class _ScoresheetPageState extends State<ScoresheetPage> {
     // Initialize score controllers if they haven't been set yet
     if (_scoreControllers.isEmpty) {
       _scoreControllers = List.generate(
-        _criteria.length,
+        _penalty.length,
         (index) => TextEditingController(text: defaultValue),
       );
     }
@@ -462,35 +526,87 @@ class _ScoresheetPageState extends State<ScoresheetPage> {
 
   @override
   Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final screenHeight = MediaQuery.of(context).size.height;
+
     return Scaffold(
       backgroundColor: const Color(0xFFEAE6FA),
-      appBar: AppBar(
-        backgroundColor: const Color(0xFFEAE6FA),
-        elevation: 0,
-        title: const Text('Tabby Go', style: TextStyle(color: Colors.black)),
-        centerTitle: true,
-        actions: [
-          Padding(
-            padding: const EdgeInsets.all(12.0),
-            child: GestureDetector(
-              onTap: () {
-                // Navigate to Judge_Chat_Module when the icon is tapped
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                      builder: (context) => const ChatScreen(
+      appBar: PreferredSize(
+        preferredSize: Size.fromHeight(screenHeight * 0.15),
+        child: SizedBox(
+          width: screenWidth,
+          height: screenHeight * 0.15,
+          child: Stack(
+            children: [
+              Positioned(
+                left: 0,
+                top: 0,
+                child: Container(
+                  width: screenWidth,
+                  height: screenHeight * 0.15,
+                  decoration: const ShapeDecoration(
+                    color: Color(0xFF5B4EC3),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.only(
+                        bottomLeft: Radius.circular(30),
+                        bottomRight: Radius.circular(30),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              Positioned(
+                left: screenHeight * 0.02,
+                top: screenHeight * 0.04,
+                child: Container(
+                  width: screenWidth * 0.40,
+                  height: screenHeight * 0.09,
+                  decoration: const ShapeDecoration(
+                    image: DecorationImage(
+                      image: AssetImage("assets/images/new-tabby.png"),
+                      fit: BoxFit.cover,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.only(
+                        bottomLeft: Radius.circular(50),
+                        bottomRight: Radius.circular(30),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              Positioned(
+                right: 12.0,
+                top: screenHeight * 0.04,
+                child: Padding(
+                  padding: const EdgeInsets.all(12.0),
+                  child: GestureDetector(
+                    onTap: () {
+                      // Navigate to Judge_Chat_Module when the icon is tapped
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const ChatScreen(
                             chatId: 'chat_id_between_admin_and_judge',
-                          )),
-                );
-              },
-              child: const Icon(Icons.chat_bubble_outline, color: Colors.black),
-            ),
+                          ),
+                        ),
+                      );
+                    },
+                    child: const Icon(Icons.chat_bubble_outline,
+                        color: Colors.black),
+                  ),
+                ),
+              ),
+              Positioned(
+                right: 12.0,
+                top: screenHeight * 0.12, // Adjusted position to avoid overlap
+                child: const Padding(
+                  padding: EdgeInsets.all(12.0),
+                ),
+              ),
+            ],
           ),
-          const Padding(
-            padding: EdgeInsets.all(12.0),
-            child: Icon(Icons.timer, color: Colors.black),
-          ),
-        ],
+        ),
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -503,14 +619,7 @@ class _ScoresheetPageState extends State<ScoresheetPage> {
                     if (_participants.isNotEmpty)
                       _buildParticipantCard(currentParticipant),
                     const SizedBox(height: 20),
-                    if (_criteria.isNotEmpty) ...[
-                      const Text('Score Sheets',
-                          style: TextStyle(
-                              fontSize: 18, fontWeight: FontWeight.bold)),
-                      const SizedBox(height: 10),
-                      _buildCriteriaContainer(),
-                    ] else
-                      const Text('No criteria available'),
+                    _buildCriteriaContainer(), // Always call this to check both categories and penalties
                     const SizedBox(height: 20),
                     _buildCommentField(),
                     const SizedBox(height: 20),
@@ -523,36 +632,46 @@ class _ScoresheetPageState extends State<ScoresheetPage> {
   }
 
   Widget _buildParticipantCard(dynamic participant) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final screenHeight = MediaQuery.of(context).size.height;
+
     return Container(
-      margin: const EdgeInsets.symmetric(vertical: 8.0),
-      padding: const EdgeInsets.all(16.0),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: const [
-          BoxShadow(
-              color: Color(0x3F000000), blurRadius: 4, offset: Offset(0, 4))
-        ],
+      margin: EdgeInsets.symmetric(vertical: screenHeight * 0.01),
+      padding: EdgeInsets.all(screenWidth * 0.04),
+      width: screenWidth * 0.9,
+      height: screenHeight * 0.12,
+      decoration: ShapeDecoration(
+        color: const Color(0xFFCDC1FF),
+        shape: RoundedRectangleBorder(
+          side: BorderSide(
+            width: 1,
+            color: Colors.black.withOpacity(0.5),
+          ),
+        ),
       ),
       child: Row(
         children: [
           Container(
-            width: 30,
-            height: 30,
+            width: screenWidth * 0.08,
+            height: screenWidth * 0.08,
             decoration: const ShapeDecoration(
               shape: OvalBorder(
-                  side: BorderSide(width: 1.50, color: Color(0xFFE6E6E6))),
+                side: BorderSide(width: 1.50, color: Color(0xFFE6E6E6)),
+              ),
             ),
             child: Center(
-              child: Text(participant['Number'] ?? 'N/A',
-                  style:
-                      const TextStyle(color: Color(0xFF7A798B), fontSize: 12)),
+              child: Text(
+                participant['Number'] ?? 'N/A',
+                style: TextStyle(
+                    color: const Color.fromARGB(255, 0, 0, 0),
+                    fontSize: screenWidth * 0.03),
+              ),
             ),
           ),
-          const SizedBox(width: 16),
+          SizedBox(width: screenWidth * 0.04),
           Container(
-            width: 80,
-            height: 80,
+            width: screenWidth * 0.15,
+            height: screenWidth * 0.15,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               border: Border.all(width: 2.0, color: const Color(0xFFE6E6E6)),
@@ -566,17 +685,26 @@ class _ScoresheetPageState extends State<ScoresheetPage> {
               ),
             ),
           ),
-          const SizedBox(width: 16),
+          SizedBox(width: screenWidth * 0.04),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Text(participant['Name'] ?? 'N/A',
-                    style: const TextStyle(color: Colors.black, fontSize: 18)),
-                const SizedBox(height: 4),
-                Text(participant['TeamName'] ?? 'N/A',
-                    style: const TextStyle(
-                        color: Color(0xFF7A798B), fontSize: 14)),
+                Text(
+                  participant['Name'] ?? 'N/A',
+                  style: TextStyle(
+                      color: Colors.black,
+                      fontSize: screenWidth * 0.04,
+                      fontWeight: FontWeight.w600),
+                ),
+                SizedBox(height: screenHeight * 0.01),
+                Text(
+                  participant['TeamName'] ?? 'N/A',
+                  style: TextStyle(
+                      color: const Color.fromARGB(255, 0, 0, 0),
+                      fontSize: screenWidth * 0.03),
+                ),
               ],
             ),
           ),
@@ -585,97 +713,191 @@ class _ScoresheetPageState extends State<ScoresheetPage> {
     );
   }
 
+  // Function to build the criteria container with categories and penalties
   Widget _buildCriteriaContainer() {
-    return Container(
-      padding: const EdgeInsets.all(16.0),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x3F000000),
-            blurRadius: 4,
-            offset: Offset(0, 4),
+    print('Building Criteria Container...');
+    print('isCriteriaEvaluated: $isCriteriaEvaluated');
+    print('Categories: $_categories');
+    print('Current Index: $currentCategoryIndex');
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return Container(
+          width: 362,
+          decoration: ShapeDecoration(
+            color: Colors.white,
+            shape: RoundedRectangleBorder(
+              side: BorderSide(
+                width: 1,
+                color: Colors.black.withOpacity(0.5),
+              ),
+            ),
           ),
-        ],
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: IntrinsicHeight(
+              child: Column(
+                children: [
+                  // Display category fields if categories are available
+                  if (_categories.isNotEmpty)
+                    _buildCategoryFields(), // Show categories after filtering
+
+                  // Only display penalties when there are filtered penalties
+                  if (_penalty.isNotEmpty && isCriteriaEvaluated)
+                    _buildPenaltyFields(), // Show penalties if available
+
+                  // Show total score if criteria is evaluated
+                  if (isCriteriaEvaluated) _buildTotalScoreField(),
+                  const SizedBox(height: 20),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  _buildPenaltyFields() {
+    List<Widget> penaltyWidgets = [];
+
+    // Add title row for penalties
+    penaltyWidgets.add(
+      Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        decoration: BoxDecoration(
+          color: Colors.grey[300],
+          borderRadius: BorderRadius.circular(5),
+        ),
+        child: const Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text('Penalty', style: TextStyle(fontWeight: FontWeight.bold)),
+            Text('Weightage', style: TextStyle(fontWeight: FontWeight.bold)),
+          ],
+        ),
       ),
-      child: Column(
-        children: [
-          if (!isCriteriaEvaluated)
-            _buildCriteriaFields(), // Show criteria fields if not evaluated
-          if (isCriteriaEvaluated)
-            _buildCategoryFields(), // Show category fields if evaluated
-          const SizedBox(height: 20),
+    );
 
-          // Show Total Score Field only when not in category evaluation
-          if (!isCriteriaEvaluated) _buildTotalScoreField(),
+    penaltyWidgets.add(const SizedBox(height: 10));
 
-          const SizedBox(height: 10), // Optional spacing
+    // Loop through penalties and filter by selected role
+    for (var index = 0; index < _penalty.length; index++) {
+      var penalty = _penalty[index];
+      String description = penalty['Description'] ?? 'N/A';
+      String weightage = penalty['Weightage']?.toString() ?? '0';
 
-          // Show Category Total Score Field if categories are present
-          if (isCriteriaEvaluated && _categories.isNotEmpty)
-            _buildCategoryTotalScoreField(),
-        ],
+      // Display penalty fields only if the role matches
+      if (penalty['AssignedJudge'] == selectedRole) {
+        penaltyWidgets.add(_buildPenaltyField(description, weightage, index));
+        penaltyWidgets.add(const SizedBox(height: 10));
+      }
+    }
+
+    return Column(children: penaltyWidgets);
+  }
+
+  Widget _buildPenaltyField(String description, String weightage, int index) {
+    // Ensure there is a TextEditingController for each penalty field
+    if (_scoreControllers.length <= index) {
+      _scoreControllers.add(TextEditingController());
+    }
+
+    // Ensure scores list is initialized for the current participant
+    if (scores.length <= currentParticipantIndex) {
+      scores.add(List.filled(_penalty.length, 0));
+    }
+
+    return GestureDetector(
+      onTap: () {
+        // Handle tap event to view penalty details
+        _viewPenaltyDetails(description, weightage);
+      },
+      child: Container(
+        width: 330,
+        height: 60,
+        padding: const EdgeInsets.symmetric(horizontal: 10),
+        decoration: ShapeDecoration(
+          color: const Color(0xFFF8FAFC),
+          shape: RoundedRectangleBorder(
+            side: BorderSide(
+              width: 1,
+              color: Colors.black.withOpacity(0.2),
+            ),
+          ),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Expanded(
+              child: Text(
+                description,
+                style: const TextStyle(fontSize: 16),
+                overflow: TextOverflow.ellipsis,
+                maxLines: 2,
+              ),
+            ),
+            // Adding a TextField for inputting score
+            SizedBox(
+              width: 60,
+              height: 40,
+              child: TextField(
+                controller: _scoreControllers[index],
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(
+                  border: OutlineInputBorder(),
+                  contentPadding:
+                      EdgeInsets.symmetric(vertical: 10, horizontal: 10),
+                  hintText: 'Score',
+                  hintStyle: TextStyle(color: Color(0xFFB8B8B8)),
+                  errorStyle: TextStyle(color: Colors.red),
+                ),
+                onChanged: (value) {
+                  int inputScore = int.tryParse(value) ?? 0;
+
+                  // Optional: Validate if the score doesn't exceed the weightage
+                  int maxScore = int.tryParse(weightage) ?? 100;
+                  if (inputScore > maxScore) {
+                    _showScoreLimitSnackbar(maxScore);
+                    inputScore = maxScore;
+                    _scoreControllers[index].text = maxScore.toString();
+                  }
+
+                  // Update the scores list
+                  scores[currentParticipantIndex][index] = inputScore;
+
+                  setState(() {}); // Update UI
+                },
+              ),
+            ),
+            const SizedBox(
+                width:
+                    20), // Space between the score box and the weightage text
+            Text('/ $weightage', style: const TextStyle(fontSize: 16)),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildCriteriaFields() {
-    List<Widget> criteriaWidgets = [];
-
-    for (var index = 0; index < _criteria.length; index++) {
-      var criterion = _criteria[index];
-      String description = criterion['Description'] ?? 'N/A';
-      String weightage = criterion['Weightage']?.toString() ?? '0';
-
-      criteriaWidgets.add(_buildCriteriaField(description, weightage, index));
-      criteriaWidgets.add(const SizedBox(height: 10));
-    }
-
-    return Column(children: criteriaWidgets);
-  }
-
-  Widget _buildCriteriaField(String criteria, String weightage, int index) {
-    if (_scoreControllers.length != _criteria.length) {
-      _initializeScoreControllers();
-    }
-
-    final maxScore = int.tryParse(weightage) ?? 100; // Default to 100
-
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Expanded(child: Text(criteria, style: const TextStyle(fontSize: 16))),
-        SizedBox(
-          width: 100,
-          child: TextField(
-            controller: _scoreControllers[index],
-            keyboardType: TextInputType.number,
-            decoration: const InputDecoration(
-              border: InputBorder.none,
-              hintText: 'Score',
-              hintStyle: TextStyle(color: Color(0xFFB8B8B8)),
-              errorStyle: TextStyle(color: Colors.red),
+  void _viewPenaltyDetails(String description, String weightage) {
+    // Show penalty details in a dialog
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Penalty Details'),
+          content: Text('Penalty: $description\nWeightage: $weightage'),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              child: const Text('Close'),
             ),
-            onChanged: (value) {
-              int inputScore = int.tryParse(value) ?? 0;
-              if (inputScore > maxScore) {
-                _showScoreLimitSnackbar(maxScore);
-                inputScore = maxScore; // Limit score to maxScore
-                _scoreControllers[index].text =
-                    maxScore.toString(); // Update the controller
-                _scoreControllers[index].selection = TextSelection.fromPosition(
-                  TextPosition(offset: _scoreControllers[index].text.length),
-                );
-              }
-              scores[currentParticipantIndex][index] =
-                  inputScore; // Update score
-              setState(() {}); // Refresh UI
-            },
-          ),
-        ),
-        Text(weightage, style: const TextStyle(fontSize: 16)),
-      ],
+          ],
+        );
+      },
     );
   }
 
@@ -687,29 +909,49 @@ class _ScoresheetPageState extends State<ScoresheetPage> {
     );
   }
 
+// Function to build category fields
   Widget _buildCategoryFields() {
     if (_categories.isEmpty) {
+      print('No categories available!');
       return const Text("No categories available.");
     }
 
-    // Get the current category based on currentCategoryIndex
+    // Debugging currentCategoryIndex
+    if (currentCategoryIndex < 0 ||
+        currentCategoryIndex >= _categories.length) {
+      print('Invalid category index, resetting to 0');
+      currentCategoryIndex = 0; // Reset to the first category
+    }
+
     var currentCategory = _categories[currentCategoryIndex];
     String categoryName = currentCategory['Category'] ?? 'N/A';
     String categoryWeightage = currentCategory['Weightage']?.toString() ?? '0';
     List criteria = currentCategory['Criteria'] ?? [];
+    String assignedRole = currentCategory['AssignedRole'] ?? '';
 
-    // Clear category score controllers when switching categories
-    _clearCategoryScoreControllers(); // Ensure input fields are cleared for the new category
+    // Debugging category rendering
+    print('Rendering Category: $categoryName');
+    print('Assigned Role: $assignedRole');
+    print('Selected Role: $selectedRole');
 
-    // Initialize controllers for category scores based on the number of criteria
-    _initializeCategoryScoreControllers(criteria.length);
+    // Modify the role comparison logic to handle empty or null assignedRole
+    if (assignedRole.isEmpty || assignedRole == selectedRole) {
+      print(
+          'Role matched or empty, proceeding with score controller initialization');
+      _clearCategoryScoreControllers();
+      _initializeCategoryScoreControllers(criteria.length);
 
-    return _buildCategoryField(
-      categoryName,
-      categoryWeightage,
-      criteria,
-      currentCategoryIndex, // Use the current category index
-    );
+      return _buildCategoryField(
+        categoryName,
+        categoryWeightage,
+        criteria,
+        currentCategoryIndex,
+      );
+    }
+
+    // Return a placeholder if the role does not match
+    print('Role did not match, returning SizedBox');
+    return const SizedBox.shrink();
   }
 
   Widget _buildCategoryField(
@@ -719,13 +961,10 @@ class _ScoresheetPageState extends State<ScoresheetPage> {
     int categoryIndex,
   ) {
     List<Widget> criteriaWidgets = [];
-    int totalCategoryScore = 0; // Initialize total category score
 
     // Ensure categoryScores is initialized for currentParticipantIndex
     if (currentParticipantIndex < categoryScores.length) {
-      // Ensure we have a score list for the current participant
       if (categoryScores[currentParticipantIndex].length < criteria.length) {
-        // Initialize the scores if necessary
         categoryScores[currentParticipantIndex] = List.from(
             categoryScores[currentParticipantIndex])
           ..addAll(List.generate(
@@ -733,7 +972,6 @@ class _ScoresheetPageState extends State<ScoresheetPage> {
               (_) => 0));
       }
     } else {
-      // Initialize a new list if the participant is not present
       categoryScores.add(List.generate(criteria.length, (_) => 0));
     }
 
@@ -744,7 +982,6 @@ class _ScoresheetPageState extends State<ScoresheetPage> {
       String description = criterion['Description'] ?? 'N/A';
       String criterionWeightage = criterion['Weightage']?.toString() ?? '0';
 
-      // Get the max score allowed for this criterion
       final maxScore = int.tryParse(criterionWeightage) ?? 100;
 
       // Use the current score from categoryScores
@@ -753,7 +990,6 @@ class _ScoresheetPageState extends State<ScoresheetPage> {
           ? categoryScores[currentParticipantIndex][criterionIndex]
           : 0;
 
-      // Initialize the controller text
       if (_categoryScoreControllers.length <= criterionIndex) {
         _categoryScoreControllers.add(
             TextEditingController(text: score > 0 ? score.toString() : ''));
@@ -765,64 +1001,71 @@ class _ScoresheetPageState extends State<ScoresheetPage> {
       }
 
       criteriaWidgets.add(
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Expanded(
-              child: Text(description, style: const TextStyle(fontSize: 16)),
-            ),
-            SizedBox(
-              width: 100,
-              child: TextField(
-                controller: _categoryScoreControllers[criterionIndex],
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(
-                  border: InputBorder.none,
-                  hintText: 'Score',
-                  hintStyle: TextStyle(color: Color(0xFFB8B8B8)),
-                ),
-                onChanged: (value) {
-                  int inputScore = int.tryParse(value) ?? 0;
-
-                  // Validate the input score against maxScore
-                  if (inputScore > maxScore) {
-                    _showScoreLimitSnackbar(maxScore);
-                    inputScore = maxScore; // Limit score to maxScore
-                    // Update the controller text to maxScore
-                    _categoryScoreControllers[criterionIndex].text =
-                        maxScore.toString();
-                    _categoryScoreControllers[criterionIndex].selection =
-                        TextSelection.fromPosition(
-                      TextPosition(
-                          offset: _categoryScoreControllers[criterionIndex]
-                              .text
-                              .length),
-                    );
-                  }
-
-                  // Update categoryScores for the current participant
-                  if (currentParticipantIndex < categoryScores.length) {
-                    categoryScores[currentParticipantIndex][criterionIndex] =
-                        inputScore;
-                  }
-
-                  // Update the total category score
-                  totalCategoryScore = categoryScores[currentParticipantIndex]
-                      .fold(0, (sum, score) => sum + score);
-
-                  setState(() {}); // Update UI
-                },
+        GestureDetector(
+          onTap: () {
+            _viewPenaltyDetails(description, criterionWeightage);
+          },
+          child: Container(
+            width: 330,
+            height: 50,
+            padding: const EdgeInsets.symmetric(horizontal: 10),
+            decoration: ShapeDecoration(
+              color: const Color(0xFFF8FAFC),
+              shape: RoundedRectangleBorder(
+                side:
+                    BorderSide(width: 1, color: Colors.black.withOpacity(0.2)),
               ),
             ),
-            Text(criterionWeightage, style: const TextStyle(fontSize: 16)),
-          ],
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Text(
+                    description,
+                    style: const TextStyle(fontSize: 16),
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 2,
+                  ),
+                ),
+                SizedBox(
+                  width: 60,
+                  height: 40,
+                  child: TextField(
+                    controller: _categoryScoreControllers[criterionIndex],
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                      border: OutlineInputBorder(),
+                      contentPadding:
+                          EdgeInsets.symmetric(vertical: 10, horizontal: 10),
+                      hintText: 'Score',
+                      hintStyle: TextStyle(color: Color(0xFFB8B8B8)),
+                      errorStyle: TextStyle(color: Colors.red),
+                    ),
+                    onChanged: (value) {
+                      int inputScore = int.tryParse(value) ?? 0;
+                      if (inputScore > maxScore) {
+                        _showScoreLimitSnackbar(maxScore);
+                        inputScore = maxScore;
+                        _categoryScoreControllers[criterionIndex].text =
+                            maxScore.toString();
+                      }
+
+                      // Update the categoryScores list
+                      categoryScores[currentParticipantIndex][criterionIndex] =
+                          inputScore;
+                      setState(() {});
+                    },
+                  ),
+                ),
+                Text('/ $criterionWeightage',
+                    style: const TextStyle(fontSize: 16)),
+              ],
+            ),
+          ),
         ),
       );
-      criteriaWidgets
-          .add(const SizedBox(height: 10)); // Spacing between criteria
     }
 
-    // Update the total score display
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -830,110 +1073,101 @@ class _ScoresheetPageState extends State<ScoresheetPage> {
           categoryName,
           style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
         ),
-        const SizedBox(height: 10), // Spacing after category title
-        Column(children: criteriaWidgets),
-        const SizedBox(height: 10), // Spacing before total score
-        Text(
-          'Total Score: $totalCategoryScore', // Display total category score
-          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-        ),
+        const SizedBox(height: 10),
+        ...criteriaWidgets,
       ],
     );
   }
 
   Widget _buildTotalScoreField() {
     // Check if the current participant index is valid
-    if (scores.isEmpty || currentParticipantIndex >= scores.length) {
+    if (categoryScores.isEmpty ||
+        currentParticipantIndex >= categoryScores.length) {
       return Container(
-        padding: const EdgeInsets.all(12.0),
-        decoration: BoxDecoration(
-          color: Colors.blueAccent,
-          borderRadius: BorderRadius.circular(12),
+        width: 330,
+        height: 50,
+        decoration: const ShapeDecoration(
+          color: Color(0xFFD9EAFD),
+          shape: RoundedRectangleBorder(
+            side: BorderSide(width: 1, color: Color(0xB20078FF)),
+          ),
         ),
-        child: const Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text('Total Score:',
-                style: TextStyle(color: Colors.white, fontSize: 16)),
-            Text('0', style: TextStyle(color: Colors.white, fontSize: 16)),
-          ],
+        child: const Padding(
+          padding: EdgeInsets.symmetric(horizontal: 12.0),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text('Total Score:',
+                  style: TextStyle(color: Colors.black, fontSize: 16)),
+              Text('0', style: TextStyle(color: Colors.black, fontSize: 16)),
+            ],
+          ),
         ),
       );
     }
+
     // Calculate the total score for the current participant
-    int totalScore =
+    int totalScore = 0;
+
+    // Sum up scores from both categories and penalty fields
+    totalScore +=
         scores[currentParticipantIndex].fold(0, (sum, score) => sum + score);
-
-    return Container(
-      padding: const EdgeInsets.all(12.0),
-      decoration: BoxDecoration(
-        color: Colors.blueAccent,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          const Text('Total Score:',
-              style: TextStyle(color: Colors.white, fontSize: 16)),
-          Text(totalScore.toString(),
-              style: const TextStyle(color: Colors.white, fontSize: 16)),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildCategoryTotalScoreField() {
-    // Check if the current participant index is valid
-    if (currentParticipantIndex >= categoryScores.length) {
-      return Container(
-        padding: const EdgeInsets.all(12.0),
-        decoration: BoxDecoration(
-          color: Colors.blueAccent,
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: const Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text('Total Category Score:',
-                style: TextStyle(color: Colors.white, fontSize: 16)),
-            Text('0', style: TextStyle(color: Colors.white, fontSize: 16)),
-          ],
-        ),
-      );
+    if (categoryScores.length > currentParticipantIndex) {
+      totalScore += categoryScores[currentParticipantIndex]
+          .fold(0, (sum, score) => sum + score);
     }
 
-    // Calculate total score for the current participant
-    int totalScore = categoryScores[currentParticipantIndex].fold(
-      0,
-      (sum, score) => sum + score,
-    );
-
     return Container(
-      padding: const EdgeInsets.all(12.0),
-      decoration: BoxDecoration(
-        color: Colors.blueAccent,
-        borderRadius: BorderRadius.circular(12),
+      width: 330,
+      height: 50,
+      decoration: const ShapeDecoration(
+        color: Color(0xFFD9EAFD),
+        shape: RoundedRectangleBorder(
+          side: BorderSide(width: 1, color: Color(0xB20078FF)),
+        ),
       ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          const Text('Total Category Score:',
-              style: TextStyle(color: Colors.white, fontSize: 16)),
-          Text(totalScore.toString(),
-              style: const TextStyle(color: Colors.white, fontSize: 16)),
-        ],
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12.0),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text('Total Score:',
+                style: TextStyle(
+                    color: Colors.black,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600)),
+            Text('$totalScore',
+                style: const TextStyle(
+                    color: Colors.black,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600)),
+          ],
+        ),
       ),
     );
   }
 
   Widget _buildCommentField() {
-    return const TextField(
-      maxLines: 4,
-      decoration: InputDecoration(
-        hintText: 'Add a comment...',
-        border: OutlineInputBorder(),
-        filled: true,
-        fillColor: Colors.white,
+    return Container(
+      width: 336,
+      height: 90,
+      decoration: const ShapeDecoration(
+        color: Color(0xFFBCCCDC),
+        shape: RoundedRectangleBorder(
+          side: BorderSide(width: 1, color: Color(0xFF9AA6B2)),
+        ),
+      ),
+      child: const TextField(
+        maxLines: 4,
+        decoration: InputDecoration(
+          hintText: 'Add a comment...',
+          border: InputBorder.none,
+          filled: true,
+          fillColor:
+              Colors.transparent, // Make the TextField background transparent
+          contentPadding:
+              EdgeInsets.all(10), // Add padding inside the TextField
+        ),
       ),
     );
   }
@@ -942,99 +1176,215 @@ class _ScoresheetPageState extends State<ScoresheetPage> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        // Button to navigate to the previous participant
         if (currentParticipantIndex > 0)
-          ElevatedButton(
-            onPressed: () {
+          GestureDetector(
+            onTap: () {
               setState(() {
                 currentParticipantIndex--;
-                isCriteriaEvaluated = false; // Reset evaluation state
-                _clearScoreControllers(); // Clear criteria scores
-                _clearCategoryScoreControllers(); // Clear category scores
+                isCriteriaEvaluated = false;
+                _clearScoreControllers();
+                _clearCategoryScoreControllers();
                 debugPrint(
                     "Navigated to Participant $currentParticipantIndex, cleared all scores.");
               });
             },
-            child: const Text('Previous'),
+            child: SizedBox(
+              width: 120,
+              height: 40,
+              child: Stack(
+                children: [
+                  Positioned(
+                    left: 0,
+                    top: 0,
+                    child: Container(
+                      width: 120,
+                      height: 40,
+                      decoration: ShapeDecoration(
+                        color: const Color(0xFFBAB5DF),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        shadows: const [
+                          BoxShadow(
+                            color: Color(0x3F000000),
+                            blurRadius: 4,
+                            offset: Offset(0, 4),
+                            spreadRadius: 0,
+                          )
+                        ],
+                      ),
+                    ),
+                  ),
+                  const Positioned(
+                    left: 10,
+                    top: 10,
+                    child: SizedBox(
+                      width: 100,
+                      child: Text(
+                        'Back',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: Color.fromARGB(255, 80, 80, 88),
+                          fontSize: 16,
+                          fontFamily: 'Rubik',
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
-        // Button to save scores and navigate
-        ElevatedButton(
-          onPressed: () async {
-            if (!isCriteriaEvaluated) {
-              // Check if all criteria are evaluated for the current participant
-              bool allCriteriaEvaluated =
-                  scores[currentParticipantIndex].every((score) => score > 0);
-              debugPrint(
-                  "All criteria evaluated for participant $currentParticipantIndex: $allCriteriaEvaluated");
+        GestureDetector(
+          onTap: () async {
+            debugPrint(
+                "Next button tapped. Current participant index: $currentParticipantIndex");
 
-              if (allCriteriaEvaluated) {
-                _saveSheets(); // Save scores for the current participant
-                debugPrint(
-                    "Sheets saved for participant $currentParticipantIndex.");
-                _navigateToNextParticipant(); // Move to the next participant
-              } else {
-                _showSnackBar(
-                    'Please evaluate all criteria before proceeding.'); // Show error message
-              }
-            } else {
-              // Save category scores when criteria evaluation is complete
-              await _saveCategoryScores();
-              _showSnackBar('Category scores saved successfully!');
+            // Show confirmation dialog only when the "Next" button is tapped
+            await _showConfirmationDialog(() async {
               debugPrint(
-                  "Category scores saved for participant $currentParticipantIndex.");
-              _navigateToNextCategoryOrParticipant(); // Move to the next category or participant
-            }
+                  "Criteria evaluated, saving scores for participant $currentParticipantIndex.");
+
+              // Handle saving scores for penalty or categories
+              if (isPenaltyRoleSelected) {
+                // Save penalty scores
+                debugPrint("Penalty role detected. Saving penalty scores.");
+                _saveSheets(); // Call method to save penalty scores
+              } else if (_categories.isNotEmpty) {
+                // Save category scores
+                debugPrint("Saving category scores.");
+                await _saveCategoryScores();
+              } else {
+                debugPrint(
+                    "Categories are empty. Skipping category scores saving.");
+              }
+
+              // After saving scores, navigate to the next participant or category
+              _navigateToNextCategoryOrParticipant();
+            });
           },
-          child: Text(isCriteriaEvaluated
-              ? 'Save Category Scores'
-              : 'Save Criteria Score'),
-        ),
+          child: SizedBox(
+            width: 120,
+            height: 40,
+            child: Stack(
+              children: [
+                Positioned(
+                  left: 0,
+                  top: 0,
+                  child: Container(
+                    width: 120,
+                    height: 40,
+                    decoration: ShapeDecoration(
+                      color: const Color(0xFF6A5AE0),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      shadows: const [
+                        BoxShadow(
+                          color: Color(0x3F000000),
+                          blurRadius: 4,
+                          offset: Offset(0, 4),
+                          spreadRadius: 0,
+                        )
+                      ],
+                    ),
+                  ),
+                ),
+                const Positioned(
+                  left: 10,
+                  top: 10,
+                  child: SizedBox(
+                    width: 100,
+                    child: Text(
+                      'Next',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontFamily: 'Rubik',
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        )
       ],
     );
   }
 
-  void _navigateToNextParticipant() {
-    setState(() {
-      if (currentParticipantIndex < _participants.length - 1) {
-        // Switch to the next participant
-        currentParticipantIndex++;
-        _clearScoreControllers(); // Clear criteria scores
-        _clearCategoryScoreControllers(); // Clear category scores
-        debugPrint(
-            "Moving to Participant $currentParticipantIndex. Cleared all scores.");
-      } else {
-        // All participants evaluated, reset to the first participant
-        isCriteriaEvaluated = true;
-        currentParticipantIndex = 0; // Reset to the first participant
-        _clearScoreControllers(); // Clear criteria scores
-        _clearCategoryScoreControllers(); // Clear category scores
-        debugPrint("All participants evaluated. Resetting to Participant 0.");
-      }
+  Future<void> _navigateToNextCategoryOrParticipant() async {
+    if (!_areAllFieldsValid()) {
+      _showSnackBar('Please fill all score fields with valid numbers.');
+      return;
+    }
+
+    // Don't show dialog here; show only after the "Next" button is confirmed
+    if (currentCategoryIndex < _categories.length - 1) {
+      _navigateToNextCategory();
+    } else if (currentParticipantIndex < _participants.length - 1) {
+      currentParticipantIndex++;
+      _clearCategoryScoreControllers();
+      debugPrint(
+          "Switching to Participant $currentParticipantIndex. Cleared category scores.");
+    } else {
+      debugPrint("All categories and participants evaluated. Navigating back.");
+      _showSnackBar('Evaluation completed.');
+      Navigator.pop(context); // Exit or navigate back
+    }
+  }
+
+  Future<void> _navigateToNextCategory() async {
+    if (!_areAllFieldsValid()) {
+      _showSnackBar('Please fill all score fields with valid numbers.');
+      return;
+    }
+
+    // Only show dialog after pressing the "Next" button
+    await _showConfirmationDialog(() {
+      setState(() {
+        if (currentCategoryIndex < _categories.length - 1) {
+          currentCategoryIndex++;
+          currentParticipantIndex = 0; // Reset to the first participant
+          _clearCategoryScoreControllers();
+          debugPrint(
+              "Moved to Category $currentCategoryIndex, reset to Participant 0.");
+        } else {
+          debugPrint("No more categories available for navigation.");
+          _showSnackBar('No more categories available.');
+        }
+      });
     });
   }
 
-  void _navigateToNextCategoryOrParticipant() {
-    setState(() {
-      if (currentParticipantIndex < _participants.length - 1) {
-        // Switch to the next participant
-        currentParticipantIndex++;
-        _clearCategoryScoreControllers(); // Clear category scores when switching participants
-        debugPrint(
-            "Switching to Participant $currentParticipantIndex. Cleared category scores.");
-      } else if (currentCategoryIndex < _categories.length - 1) {
-        // Switch to the next category
-        switchCategory(
-            currentCategoryIndex + 1); // Use the _switchCategory method
-        currentParticipantIndex = 0; // Reset for the new category
-        debugPrint(
-            "Moving to Category $currentCategoryIndex, resetting to Participant 0. Cleared all scores.");
-      } else {
-        // All evaluations completed, navigate back
-        Navigator.pop(context); // Return to the previous screen
-        debugPrint(
-            "All categories and participants evaluated. Navigating back.");
-      }
-    });
+  Future<void> _showConfirmationDialog(VoidCallback onConfirm) async {
+    return showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Confirm Submission'),
+          content: const Text('Are you sure you want to submit the score?'),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                onConfirm();
+              },
+              child: const Text('Confirm'),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   void switchCategory(int newCategoryIndex) {
